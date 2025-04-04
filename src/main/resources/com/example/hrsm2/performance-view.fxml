@@ -77,10 +77,8 @@
                     <Label text="Comments:" GridPane.columnIndex="0" GridPane.rowIndex="4" />
                     <TextArea fx:id="commentsArea" prefHeight="60" wrapText="true" 
                               GridPane.columnIndex="1" GridPane.rowIndex="4" GridPane.columnSpan="3" />
-                    
-                    <Label text="Reviewed By:" GridPane.columnIndex="0" GridPane.rowIndex="5" />
-                    <TextField fx:id="reviewedByField" GridPane.columnIndex="1" GridPane.rowIndex="5" />
-                    
+
+
                     <HBox alignment="CENTER_RIGHT" spacing="10" GridPane.columnIndex="0" 
                           GridPane.rowIndex="6" GridPane.columnSpan="4">
                         <Button fx:id="addButton" text="Add Evaluation" onAction="#handleAddEvaluation" prefWidth="120" />

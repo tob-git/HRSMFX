@@ -40,16 +40,19 @@ public class MainController implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle rb) {
         try {
-            // Load standard tabs
-            loadEmployeeTab();
-            loadLeaveManagementTab();
-            loadPayrollTab();
-            loadPerformanceTab();
+
             
             // Check if current user is a super admin and add user management tab if so
             User currentUser = userService.getCurrentUser();
             if (currentUser != null && currentUser.isSuperAdmin()) {
                 loadUserManagementTab();
+            }
+            else {
+                // Load standard tabs
+                loadEmployeeTab();
+                loadLeaveManagementTab();
+                loadPayrollTab();
+                loadPerformanceTab();
             }
             
         } catch (IOException e) {

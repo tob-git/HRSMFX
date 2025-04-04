@@ -144,7 +144,7 @@ public class SampleDataLoader {
                 .anyMatch(user -> user.getRole() == User.UserRole.HR_ADMIN);
                 
         if (!hasHrUsers) {
-            userService.createUser("hradmin", "hr123", "HR Administrator", User.UserRole.HR_ADMIN);
+            userService.createUser("hr", "hr", "HR Administrator", User.UserRole.HR_ADMIN);
         }
     }
 } 

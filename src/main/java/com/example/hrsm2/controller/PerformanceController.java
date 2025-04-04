@@ -2,8 +2,10 @@ package com.example.hrsm2.controller;
 
 import com.example.hrsm2.model.Employee;
 import com.example.hrsm2.model.PerformanceEvaluation;
+import com.example.hrsm2.model.User;
 import com.example.hrsm2.service.EmployeeService;
 import com.example.hrsm2.service.PerformanceEvaluationService;
+import com.example.hrsm2.service.UserService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -11,7 +13,6 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.util.StringConverter;
-
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -51,9 +52,7 @@ public class PerformanceController implements Initializable {
     private TextArea improvementArea;
     @FXML
     private TextArea commentsArea;
-    @FXML
-    private TextField reviewedByField;
-    
+
     @FXML
     private Button addButton;
     @FXML
@@ -68,6 +67,8 @@ public class PerformanceController implements Initializable {
     private ObservableList<PerformanceEvaluation> evaluationList = FXCollections.observableArrayList();
     private ObservableList<Employee> employeeList = FXCollections.observableArrayList();
     private PerformanceEvaluation selectedEvaluation;
+    private final UserService userService = UserService.getInstance();
+    User currentUser = userService.getCurrentUser();
     
     @Override
     public void initialize(URL url, ResourceBundle rb) {
@@ -199,7 +200,7 @@ public class PerformanceController implements Initializable {
             String strengths = strengthsArea.getText();
             String improvement = improvementArea.getText();
             String comments = commentsArea.getText();
-            String reviewedBy = reviewedByField.getText();
+            String reviewedBy = currentUser.getFullName();
             
             // Create new evaluation
             PerformanceEvaluation evaluation = new PerformanceEvaluation(
@@ -251,7 +252,7 @@ public class PerformanceController implements Initializable {
             selectedEvaluation.setStrengths(strengthsArea.getText());
             selectedEvaluation.setAreasForImprovement(improvementArea.getText());
             selectedEvaluation.setComments(commentsArea.getText());
-            selectedEvaluation.setReviewedBy(reviewedByField.getText());
+            selectedEvaluation.setReviewedBy(currentUser.getFullName());
             
             // Update in service
             evaluationService.updateEvaluation(selectedEvaluation);
@@ -328,7 +329,7 @@ public class PerformanceController implements Initializable {
         strengthsArea.setText(evaluation.getStrengths());
         improvementArea.setText(evaluation.getAreasForImprovement());
         commentsArea.setText(evaluation.getComments());
-        reviewedByField.setText(evaluation.getReviewedBy());
+
     }
     
     private void clearForm() {
@@ -339,7 +340,6 @@ public class PerformanceController implements Initializable {
         strengthsArea.clear();
         improvementArea.clear();
         commentsArea.clear();
-        reviewedByField.clear();
     }
     
     private boolean validateInputs() {
@@ -361,9 +361,7 @@ public class PerformanceController implements Initializable {
             errorMessage.append("Areas for improvement is required.\n");
         }
         
-        if (reviewedByField.getText().trim().isEmpty()) {
-            errorMessage.append("Reviewed by is required.\n");
-        }
+
         
         if (errorMessage.length() > 0) {
             showAlert(Alert.AlertType.ERROR, "Validation Error", errorMessage.toString());
