@@ -1,5 +1,6 @@
 package com.example.hrsm2;
 
+import com.example.hrsm2.util.DatabaseDriver;
 import com.example.hrsm2.util.SampleDataLoader;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
