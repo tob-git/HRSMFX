@@ -1,7 +1,8 @@
 package com.example.hrsm2.util;
 
 import com.example.hrsm2.model.Employee;
-import com.example.hrsm2.model.LeaveRequest; // Import LeaveRequest
+import com.example.hrsm2.model.LeaveRequest;
+import com.example.hrsm2.model.User; // Import the User model
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -36,17 +37,14 @@ public class DatabaseDriver {
             + "salary REAL"
             + ");";
 
-    // Adjusted Leave table schema slightly - Removed 'days', using TEXT id for leave as well for consistency (OPTIONAL but simplifies model)
-    // OR stick with INTEGER ID as originally defined, requiring model change. Let's stick to the original schema for this example.
     private static final String CREATE_LEAVE_TABLE = "CREATE TABLE IF NOT EXISTS LeaveManagement ("
             + "id INTEGER PRIMARY KEY AUTOINCREMENT, " // Auto-increment integer ID
             + "employee_id TEXT NOT NULL, " // Foreign Key referencing Employee ID (TEXT)
             + "start_date TEXT NOT NULL, "    // Stored as 'yyyy-MM-dd'
             + "end_date TEXT NOT NULL, "      // Stored as 'yyyy-MM-dd'
-            // Removed 'days' column - calculate dynamically
             + "reason TEXT, "
             + "status TEXT NOT NULL, " // e.g., 'PENDING', 'APPROVED', 'REJECTED'
-            + "manager_comments TEXT, " // Renamed from manager_comment for consistency
+            + "manager_comments TEXT, "
             + "FOREIGN KEY(employee_id) REFERENCES Employee(id) ON DELETE CASCADE" // Cascade delete if employee is removed
             + ");";
 
@@ -79,9 +77,9 @@ public class DatabaseDriver {
 
     private static final String CREATE_USER_TABLE = "CREATE TABLE IF NOT EXISTS UserManagement ("
             + "username TEXT PRIMARY KEY, "
-            + "full_name TEXT, "
-            + "password TEXT, " // Hashed password
-            + "role TEXT" // e.g., 'Admin', 'Manager', 'Employee'
+            + "full_name TEXT NOT NULL, "
+            + "password TEXT NOT NULL, " // Hashed password
+            + "role TEXT NOT NULL" // e.g., 'SUPER_ADMIN', 'HR_ADMIN'
             + ");";
 
     // --- SQL CRUD Statements for Employee ---
@@ -109,6 +107,11 @@ public class DatabaseDriver {
 
     // --- SQL CRUD Statements for User ---
     private static final String INSERT_USER_SQL = "INSERT INTO UserManagement(username, full_name, password, role) VALUES(?,?,?,?)";
+    private static final String SELECT_ALL_USERS_SQL = "SELECT * FROM UserManagement ORDER BY full_name";
+    private static final String SELECT_USER_BY_USERNAME_SQL = "SELECT * FROM UserManagement WHERE username = ?";
+    // Update only allows changing full name, password hash, and role for a given username
+    private static final String UPDATE_USER_SQL = "UPDATE UserManagement SET full_name = ?, password = ?, role = ? WHERE username = ?";
+    private static final String DELETE_USER_SQL = "DELETE FROM UserManagement WHERE username = ?";
 
     private Connection connection;
 
@@ -124,6 +127,8 @@ public class DatabaseDriver {
             connection = DriverManager.getConnection(DB_URL);
             System.out.println("Database connection established to " + DB_URL);
             createTableIfNotExists();
+            // Ensure the super admin exists on first run or subsequent startups
+            ensureSuperAdminExists();
         } catch (SQLException e) {
             System.err.println("FATAL: Database connection error: " + e.getMessage());
             // Consider throwing a runtime exception or handling more gracefully
@@ -152,14 +157,17 @@ public class DatabaseDriver {
         try (Statement stmt = connection.createStatement()) {
             // Drop tables only if necessary during development schema changes
             // System.out.println("DEBUG: Dropping tables...");
+            // stmt.execute("DROP TABLE IF EXISTS UserManagement;");
             // stmt.execute("DROP TABLE IF EXISTS LeaveManagement;");
+            // stmt.execute("DROP TABLE IF EXISTS PayrollProcessing;");
+            // stmt.execute("DROP TABLE IF EXISTS PerformanceEvaluations;");
             // stmt.execute("DROP TABLE IF EXISTS Employee;"); // Must drop dependent tables first or disable FKs
 
             stmt.execute(CREATE_EMPLOYEE_TABLE);
             stmt.execute(CREATE_LEAVE_TABLE);
             stmt.execute(CREATE_PAYROLL_TABLE);
             stmt.execute(CREATE_EVALUATION_TABLE);
-            stmt.execute(CREATE_USER_TABLE);
+            stmt.execute(CREATE_USER_TABLE); // Create User table
             System.out.println("Database tables checked/created successfully.");
 
         } catch (SQLException e) {
@@ -168,8 +176,8 @@ public class DatabaseDriver {
         }
     }
 
-    // --- Employee CRUD Methods --- (Keep existing methods: insertEmployee, getAllEmployees, getEmployeeById, updateEmployee, deleteEmployee, searchEmployees, mapResultSetToEmployee)
-    // ... (Employee methods from the original code) ...
+    // --- Employee CRUD Methods ---
+
     /**
      * Inserts a new employee record into the database.
      * Assumes the Employee object has a non-null, valid UUID assigned.
@@ -198,7 +206,7 @@ public class DatabaseDriver {
             int affectedRows = pstmt.executeUpdate();
 
             if (affectedRows > 0) {
-                System.out.println("Employee inserted successfully (ID: " + employee.getId() + ")");
+                // System.out.println("Employee inserted successfully (ID: " + employee.getId() + ")"); // Less verbose logging
                 return true;
             } else {
                 System.err.println("Employee insertion failed (ID: " + employee.getId() + "), no rows affected.");
@@ -296,11 +304,11 @@ public class DatabaseDriver {
 
             int affectedRows = pstmt.executeUpdate();
             if(affectedRows > 0) {
-                System.out.println("Employee updated successfully (ID: " + employee.getId() + ")");
+                // System.out.println("Employee updated successfully (ID: " + employee.getId() + ")"); // Less verbose
                 return true;
             } else {
                 // This can happen if the ID doesn't exist
-                System.out.println("Employee not found or no changes made during update (ID: " + employee.getId() + ")");
+                // System.out.println("Employee not found or no changes made during update (ID: " + employee.getId() + ")"); // Less verbose
                 return false;
             }
         } catch (SQLException e) {
@@ -331,11 +339,11 @@ public class DatabaseDriver {
             pstmt.setString(1, id); // Use String ID in WHERE clause
             int affectedRows = pstmt.executeUpdate();
             if(affectedRows > 0) {
-                System.out.println("Employee deleted successfully (ID: " + id + ")");
+                // System.out.println("Employee deleted successfully (ID: " + id + ")"); // Less verbose
                 return true;
             } else {
                 // This can happen if the ID doesn't exist
-                System.out.println("Employee not found for deletion (ID: " + id + ")");
+                // System.out.println("Employee not found for deletion (ID: " + id + ")"); // Less verbose
                 return false;
             }
         } catch (SQLException e) {
@@ -412,7 +420,7 @@ public class DatabaseDriver {
     /**
      * Inserts a new leave request record into the database.
      *
-     * @param leaveRequest The LeaveRequest object to insert (ID should be null).
+     * @param leaveRequest The LeaveRequest object to insert (ID should be null or 0).
      * @return The generated ID of the inserted request, or -1 if insertion failed.
      */
     public int insertLeaveRequest(LeaveRequest leaveRequest) {
@@ -440,7 +448,7 @@ public class DatabaseDriver {
                 try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
                         int generatedId = generatedKeys.getInt(1);
-                        System.out.println("Leave request inserted successfully (ID: " + generatedId + ")");
+                        // System.out.println("Leave request inserted successfully (ID: " + generatedId + ")"); // Less verbose
                         return generatedId; // Return the auto-generated ID
                     } else {
                         System.err.println("Leave request insertion succeeded but failed to retrieve generated ID.");
@@ -491,7 +499,7 @@ public class DatabaseDriver {
      */
     public LeaveRequest getLeaveRequestById(int id) {
         if (connection == null || id <= 0) {
-            System.err.println("Cannot get leave request by ID: Invalid ID or no DB connection.");
+            // System.err.println("Cannot get leave request by ID: Invalid ID or no DB connection."); // Less verbose
             return null;
         }
 
@@ -591,10 +599,10 @@ public class DatabaseDriver {
 
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
-                System.out.println("Leave request updated successfully (ID: " + leaveRequest.getId() + ")");
+                // System.out.println("Leave request updated successfully (ID: " + leaveRequest.getId() + ")"); // Less verbose
                 return true;
             } else {
-                System.out.println("Leave request not found or no changes made during update (ID: " + leaveRequest.getId() + ")");
+                // System.out.println("Leave request not found or no changes made during update (ID: " + leaveRequest.getId() + ")"); // Less verbose
                 return false;
             }
         } catch (SQLException e) {
@@ -620,10 +628,10 @@ public class DatabaseDriver {
             pstmt.setInt(1, id); // Use Integer ID
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
-                System.out.println("Leave request deleted successfully (ID: " + id + ")");
+                // System.out.println("Leave request deleted successfully (ID: " + id + ")"); // Less verbose
                 return true;
             } else {
-                System.out.println("Leave request not found for deletion (ID: " + id + ")");
+                // System.out.println("Leave request not found for deletion (ID: " + id + ")"); // Less verbose
                 return false;
             }
         } catch (SQLException e) {
@@ -659,8 +667,7 @@ public class DatabaseDriver {
         }
 
         // Use the constructor that includes the Integer ID
-        LeaveRequest request = new LeaveRequest(id, employeeId, startDate, endDate, reason, status, managerComments);
-        return request;
+        return new LeaveRequest(id, employeeId, startDate, endDate, reason, status, managerComments);
     }
 
     /**
@@ -681,26 +688,32 @@ public class DatabaseDriver {
     }
 
 
-    // --- User Management Methods --- (Keep existing methods: hashPassword, insertUser)
-    // ... (User methods from the original code) ...
+    // --- User Management Methods ---
+
     /**
      * Hashes a password using SHA-256.
+     * Public now so UserService can use it for comparison during authentication.
      * @param password The plain text password.
-     * @return The hex string representation of the hashed password.
-     * @throws NoSuchAlgorithmException If SHA-256 is not available.
+     * @return The hex string representation of the hashed password, or null if error.
      */
-    private String hashPassword(String password) throws NoSuchAlgorithmException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
-        StringBuilder hexString = new StringBuilder(2 * hash.length);
-        for (byte b : hash) {
-            String hex = Integer.toHexString(0xff & b);
-            if (hex.length() == 1) {
-                hexString.append('0');
+    public String hashPassword(String password) {
+        if (password == null) return null;
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder(2 * hash.length);
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
             }
-            hexString.append(hex);
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            System.err.println("Error hashing password: SHA-256 not available. " + e.getMessage());
+            return null; // Indicate failure
         }
-        return hexString.toString();
     }
 
     /**
@@ -708,31 +721,232 @@ public class DatabaseDriver {
      *
      * @param username User's unique username.
      * @param fullName User's full name.
-     * @param password User's plain text password (will be hashed).
-     * @param role User's role (e.g., 'Admin').
+     * @param plainPassword User's plain text password (will be hashed).
+     * @param role User's role as a String (e.g., "SUPER_ADMIN", "HR_ADMIN").
      * @return true if successful, false otherwise.
      */
-    public boolean insertUser(String username, String fullName, String password, String role) {
-        if (connection == null || username == null || password == null || role == null) return false;
+    public boolean insertUser(String username, String fullName, String plainPassword, String role) {
+        if (connection == null || username == null || username.trim().isEmpty() ||
+                fullName == null || fullName.trim().isEmpty() || plainPassword == null ||
+                role == null || role.trim().isEmpty()) {
+            System.err.println("Cannot insert user: Invalid input or no DB connection.");
+            return false;
+        }
+
+        String hashedPassword = hashPassword(plainPassword);
+        if (hashedPassword == null) {
+            System.err.println("Cannot insert user: Failed to hash password.");
+            return false; // Hashing failed
+        }
+
         try (PreparedStatement pstmt = connection.prepareStatement(INSERT_USER_SQL)) {
-            pstmt.setString(1, username);
-            pstmt.setString(2, fullName);
-            pstmt.setString(3, hashPassword(password)); // Hash the password
-            pstmt.setString(4, role);
+            pstmt.setString(1, username.trim());
+            pstmt.setString(2, fullName.trim());
+            pstmt.setString(3, hashedPassword);
+            pstmt.setString(4, role.trim().toUpperCase()); // Store role consistently as uppercase string
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
                 System.out.println("User '" + username + "' inserted successfully.");
                 return true;
             }
-            return false;
-        } catch (SQLException | NoSuchAlgorithmException e) {
-            System.err.println("Error inserting user '" + username + "': " + e.getMessage());
-            if (e instanceof SQLException && ((SQLException)e).getErrorCode() == 19) {
-                System.err.println("Hint: Username might already exist.");
+            return false; // Should not happen unless username already exists but wasn't caught before
+        } catch (SQLException e) {
+            // Check for primary key violation (username exists)
+            if (e.getErrorCode() == 19 /* SQLite constraint violation */ || (e.getMessage() != null && e.getMessage().toLowerCase().contains("unique constraint failed: usermanagement.username"))) {
+                System.err.println("Error inserting user: Username '" + username + "' already exists.");
+            } else {
+                System.err.println("Error inserting user '" + username + "': " + e.getMessage());
+                e.printStackTrace();
             }
             return false;
         }
     }
+
+    /**
+     * Retrieves a single user by their username.
+     *
+     * @param username The username to search for.
+     * @return The User object if found, otherwise null.
+     */
+    public User getUserByUsername(String username) {
+        if (connection == null || username == null || username.trim().isEmpty()) {
+            return null;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(SELECT_USER_BY_USERNAME_SQL)) {
+            pstmt.setString(1, username.trim());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToUser(rs);
+                } else {
+                    return null; // User not found
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving user by username (" + username + "): " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Retrieves all users from the database.
+     *
+     * @return A List of User objects, or an empty list if none found or error occurs.
+     */
+    public List<User> getAllUsers() {
+        List<User> userList = new ArrayList<>();
+        if (connection == null) {
+            System.err.println("Cannot get users: No DB connection.");
+            return userList; // Return empty list
+        }
+
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(SELECT_ALL_USERS_SQL)) {
+
+            while (rs.next()) {
+                userList.add(mapResultSetToUser(rs));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving all users: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return userList;
+    }
+
+    /**
+     * Updates an existing user's details (full name, password hash, role).
+     * Note: Password should be passed already hashed if it's being updated. If you intend
+     * to change the password using a plain text password, hash it before calling this method
+     * or create a separate method like `changeUserPassword(username, newPlainPassword)`.
+     *
+     * @param user The User object containing the updated data (username identifies the user).
+     *             The password in this object MUST be the HASHED password.
+     * @return true if the update was successful, false otherwise.
+     */
+    public boolean updateUser(User user) {
+        if (connection == null || user == null || user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+            System.err.println("Cannot update user: Invalid input or no DB connection.");
+            return false;
+        }
+        // We assume user.getPassword() contains the CORRECT HASH here
+        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+            System.err.println("Cannot update user: Hashed password is required in the User object for update.");
+            return false;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_USER_SQL)) {
+            pstmt.setString(1, user.getFullName());
+            pstmt.setString(2, user.getPassword()); // Assumes this is already hashed
+            pstmt.setString(3, user.getRole().name()); // Convert enum to string (e.g., "SUPER_ADMIN")
+            pstmt.setString(4, user.getUsername());   // WHERE clause
+
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                // System.out.println("User updated successfully (Username: " + user.getUsername() + ")"); // Less verbose
+                return true;
+            } else {
+                // System.out.println("User not found or no changes made during update (Username: " + user.getUsername() + ")"); // Less verbose
+                return false; // User might not exist
+            }
+        } catch (SQLException e) {
+            System.err.println("Error updating user (Username: " + user.getUsername() + "): " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+    /**
+     * Deletes a user from the database by username.
+     * Does not allow deleting the 'super' admin user.
+     *
+     * @param username The username of the user to delete.
+     * @return true if deletion was successful, false otherwise.
+     */
+    public boolean deleteUser(String username) {
+        if (connection == null || username == null || username.trim().isEmpty()) {
+            System.err.println("Cannot delete user: Invalid username or no DB connection.");
+            return false;
+        }
+
+        // Prevent deleting the primary super admin account
+        if ("super".equalsIgnoreCase(username.trim())) {
+            System.err.println("Attempted to delete the default super admin user. Operation denied.");
+            return false;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(DELETE_USER_SQL)) {
+            pstmt.setString(1, username.trim());
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                // System.out.println("User deleted successfully (Username: " + username + ")"); // Less verbose
+                return true;
+            } else {
+                // System.out.println("User not found for deletion (Username: " + username + ")"); // Less verbose
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error deleting user (Username: " + username + "): " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Helper method to map a ResultSet row to a User object.
+     *
+     * @param rs ResultSet positioned at the correct row.
+     * @return A User object.
+     * @throws SQLException If database error occurs.
+     */
+    private User mapResultSetToUser(ResultSet rs) throws SQLException {
+        String username = rs.getString("username");
+        String fullName = rs.getString("full_name");
+        String hashedPassword = rs.getString("password");
+        String roleStr = rs.getString("role");
+
+        User.UserRole role = User.UserRole.HR_ADMIN; // Default role if parsing fails
+        try {
+            if (roleStr != null && !roleStr.isEmpty()) {
+                // Convert the stored string (e.g., "SUPER_ADMIN") back to the enum constant
+                role = User.UserRole.valueOf(roleStr.trim().toUpperCase());
+            }
+        } catch (IllegalArgumentException e) {
+            System.err.println("Warning: Invalid user role value '" + roleStr + "' found in database for user '" + username + "'. Defaulting to HR_ADMIN.");
+        }
+
+        // Create user object using the constructor that takes username, HASHED password, full name, and role.
+        return new User(username, hashedPassword, fullName, role);
+    }
+
+    /**
+     * Ensures the default super administrator account exists in the database.
+     * Creates it with a default password if it doesn't exist.
+     */
+    private void ensureSuperAdminExists() {
+        String superAdminUsername = "super";
+        String superAdminPassword = "super123"; // Default plain text password
+        String superAdminFullName = "Super Administrator";
+        User.UserRole superAdminRole = User.UserRole.SUPER_ADMIN;
+
+        User existingAdmin = getUserByUsername(superAdminUsername);
+        if (existingAdmin == null) {
+            System.out.println("Default super admin user ('" + superAdminUsername + "') not found. Creating...");
+            // Use the insertUser method which handles hashing
+            boolean created = insertUser(superAdminUsername, superAdminFullName, superAdminPassword, superAdminRole.name());
+            if (created) {
+                System.out.println("Default super admin user created successfully with default password.");
+            } else {
+                System.err.println("FATAL: Failed to create default super admin user! Application might not function correctly.");
+                // Consider throwing a runtime exception or taking more drastic action
+            }
+        } else {
+            // Optional: Log that the admin already exists
+            // System.out.println("Default super admin user already exists.");
+        }
+    }
+
 
     // --- Connection Management ---
     /**
