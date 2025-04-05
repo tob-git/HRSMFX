@@ -1,6 +1,7 @@
 package com.example.hrsm2.util;
 
 import com.example.hrsm2.model.Employee;
+import com.example.hrsm2.model.LeaveRequest; // Import LeaveRequest
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -35,16 +36,17 @@ public class DatabaseDriver {
             + "salary REAL"
             + ");";
 
-    // Define other table schemas (ensure Foreign Keys reference Employee(id) correctly as TEXT)
+    // Adjusted Leave table schema slightly - Removed 'days', using TEXT id for leave as well for consistency (OPTIONAL but simplifies model)
+    // OR stick with INTEGER ID as originally defined, requiring model change. Let's stick to the original schema for this example.
     private static final String CREATE_LEAVE_TABLE = "CREATE TABLE IF NOT EXISTS LeaveManagement ("
-            + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            + "id INTEGER PRIMARY KEY AUTOINCREMENT, " // Auto-increment integer ID
             + "employee_id TEXT NOT NULL, " // Foreign Key referencing Employee ID (TEXT)
-            + "start_date TEXT, "
-            + "end_date TEXT, "
-            + "days INTEGER, "
+            + "start_date TEXT NOT NULL, "    // Stored as 'yyyy-MM-dd'
+            + "end_date TEXT NOT NULL, "      // Stored as 'yyyy-MM-dd'
+            // Removed 'days' column - calculate dynamically
             + "reason TEXT, "
-            + "status TEXT, " // e.g., 'Pending', 'Approved', 'Rejected'
-            + "manager_comment TEXT, "
+            + "status TEXT NOT NULL, " // e.g., 'PENDING', 'APPROVED', 'REJECTED'
+            + "manager_comments TEXT, " // Renamed from manager_comment for consistency
             + "FOREIGN KEY(employee_id) REFERENCES Employee(id) ON DELETE CASCADE" // Cascade delete if employee is removed
             + ");";
 
@@ -84,7 +86,7 @@ public class DatabaseDriver {
 
     // --- SQL CRUD Statements for Employee ---
     private static final String INSERT_EMPLOYEE_SQL = "INSERT INTO Employee(id, first_name, last_name, email, phone, hire_date, department, job_title, salary) VALUES(?,?,?,?,?,?,?,?,?)";
-    private static final String SELECT_ALL_EMPLOYEES_SQL = "SELECT * FROM Employee ORDER BY last_name, first_name"; // Added default sorting
+    private static final String SELECT_ALL_EMPLOYEES_SQL = "SELECT * FROM Employee ORDER BY last_name, first_name";
     private static final String SELECT_EMPLOYEE_BY_ID_SQL = "SELECT * FROM Employee WHERE id = ?";
     private static final String UPDATE_EMPLOYEE_SQL = "UPDATE Employee SET first_name = ?, last_name = ?, email = ?, phone = ?, hire_date = ?, department = ?, job_title = ?, salary = ? WHERE id = ?";
     private static final String DELETE_EMPLOYEE_SQL = "DELETE FROM Employee WHERE id = ?";
@@ -94,65 +96,80 @@ public class DatabaseDriver {
             + "lower(email) LIKE ? OR "
             + "lower(department) LIKE ? OR "
             + "lower(job_title) LIKE ? "
-            + "ORDER BY last_name, first_name"; // Consistent sorting
+            + "ORDER BY last_name, first_name";
 
-    // --- SQL CRUD Statements for other entities (examples) ---
+    // --- SQL CRUD Statements for LeaveManagement ---
+    private static final String INSERT_LEAVE_SQL = "INSERT INTO LeaveManagement(employee_id, start_date, end_date, reason, status, manager_comments) VALUES(?,?,?,?,?,?)";
+    private static final String SELECT_ALL_LEAVES_SQL = "SELECT * FROM LeaveManagement ORDER BY start_date DESC";
+    private static final String SELECT_LEAVE_BY_ID_SQL = "SELECT * FROM LeaveManagement WHERE id = ?";
+    private static final String SELECT_LEAVES_BY_EMPLOYEE_ID_SQL = "SELECT * FROM LeaveManagement WHERE employee_id = ? ORDER BY start_date DESC";
+    private static final String SELECT_APPROVED_LEAVES_BY_EMPLOYEE_ID_SQL = "SELECT * FROM LeaveManagement WHERE employee_id = ? AND status = 'APPROVED'";
+    private static final String UPDATE_LEAVE_SQL = "UPDATE LeaveManagement SET employee_id = ?, start_date = ?, end_date = ?, reason = ?, status = ?, manager_comments = ? WHERE id = ?";
+    private static final String DELETE_LEAVE_SQL = "DELETE FROM LeaveManagement WHERE id = ?";
+
+    // --- SQL CRUD Statements for User ---
     private static final String INSERT_USER_SQL = "INSERT INTO UserManagement(username, full_name, password, role) VALUES(?,?,?,?)";
-    // Add other INSERT, UPDATE, DELETE, SELECT statements for Leave, Payroll, Evaluation as needed
 
     private Connection connection;
 
+    // --- Singleton Pattern ---
+    private static DatabaseDriver instance;
+
     /**
-     * Constructor establishes the database connection and ensures tables exist.
+     * Private constructor for Singleton pattern.
+     * Establishes the database connection and ensures tables exist.
      */
     public DatabaseDriver() {
         try {
-            // Load the SQLite JDBC driver (optional for modern JDBC, but good practice)
-            // Class.forName("org.sqlite.JDBC");
             connection = DriverManager.getConnection(DB_URL);
             System.out.println("Database connection established to " + DB_URL);
             createTableIfNotExists();
         } catch (SQLException e) {
             System.err.println("FATAL: Database connection error: " + e.getMessage());
-            // In a real app, might throw exception or exit if DB is essential
-        } /*catch (ClassNotFoundException e) {
-            System.err.println("FATAL: SQLite JDBC Driver not found.");
-        }*/
+            // Consider throwing a runtime exception or handling more gracefully
+            e.printStackTrace();
+        }
     }
 
     /**
-     * Executes the CREATE TABLE statements if the tables do not already exist.
+     * Gets the single instance of DatabaseDriver.
+     *
+     * @return The singleton DatabaseDriver instance.
      */
+    public static synchronized DatabaseDriver getInstance() {
+        if (instance == null) {
+            instance = new DatabaseDriver();
+        }
+        return instance;
+    }
+
+    // --- Table Creation ---
     private void createTableIfNotExists() {
         if (connection == null) {
             System.err.println("Cannot create tables, no database connection.");
             return;
         }
-        // Use try-with-resources for the Statement
         try (Statement stmt = connection.createStatement()) {
-            // Drop table only if absolutely necessary during schema change development
-            // System.out.println("DEBUG: Dropping existing Employee table for schema update...");
-            // stmt.execute("DROP TABLE IF EXISTS Employee;"); // !! DELETES ALL EMPLOYEE DATA !!
+            // Drop tables only if necessary during development schema changes
+            // System.out.println("DEBUG: Dropping tables...");
+            // stmt.execute("DROP TABLE IF EXISTS LeaveManagement;");
+            // stmt.execute("DROP TABLE IF EXISTS Employee;"); // Must drop dependent tables first or disable FKs
 
             stmt.execute(CREATE_EMPLOYEE_TABLE);
-            stmt.execute(CREATE_LEAVE_TABLE);       // Create other tables
+            stmt.execute(CREATE_LEAVE_TABLE);
             stmt.execute(CREATE_PAYROLL_TABLE);
             stmt.execute(CREATE_EVALUATION_TABLE);
             stmt.execute(CREATE_USER_TABLE);
             System.out.println("Database tables checked/created successfully.");
 
-            // Optional: Add default user if table is newly created
-            // addDefaultAdminUserIfNotExists();
-
         } catch (SQLException e) {
             System.err.println("Error creating/checking tables: " + e.getMessage());
-            // Log stack trace for detailed debugging
             e.printStackTrace();
         }
     }
 
-    // --- Employee CRUD Methods ---
-
+    // --- Employee CRUD Methods --- (Keep existing methods: insertEmployee, getAllEmployees, getEmployeeById, updateEmployee, deleteEmployee, searchEmployees, mapResultSetToEmployee)
+    // ... (Employee methods from the original code) ...
     /**
      * Inserts a new employee record into the database.
      * Assumes the Employee object has a non-null, valid UUID assigned.
@@ -232,7 +249,7 @@ public class DatabaseDriver {
      */
     public Employee getEmployeeById(String id) {
         if (connection == null || id == null || id.trim().isEmpty()) {
-            System.err.println("Cannot get employee by ID: Invalid input or no DB connection.");
+            // System.err.println("Cannot get employee by ID: Invalid input or no DB connection."); // Less verbose
             return null;
         }
 
@@ -242,7 +259,7 @@ public class DatabaseDriver {
                 if (rs.next()) {
                     return mapResultSetToEmployee(rs);
                 } else {
-                    System.out.println("Employee not found with ID: " + id);
+                    // System.out.println("Employee not found with ID: " + id); // Less verbose
                     return null;
                 }
             }
@@ -380,17 +397,7 @@ public class DatabaseDriver {
         String lastName = rs.getString("last_name");
         String email = rs.getString("email");
         String phone = rs.getString("phone");
-        LocalDate hireDate = null;
-        String hireDateStr = rs.getString("hire_date");
-        if (hireDateStr != null && !hireDateStr.isEmpty()) {
-            try {
-                // Parse the date string using the defined formatter
-                hireDate = LocalDate.parse(hireDateStr, DATE_FORMATTER);
-            } catch (DateTimeParseException e) {
-                // Log error if parsing fails, but don't stop processing other data
-                System.err.println("Warning: Could not parse hire date '" + hireDateStr + "' for employee ID " + id);
-            }
-        }
+        LocalDate hireDate = parseDate(rs.getString("hire_date")); // Use helper
         String department = rs.getString("department");
         String jobTitle = rs.getString("job_title");
         double salary = rs.getDouble("salary");
@@ -400,8 +407,282 @@ public class DatabaseDriver {
     }
 
 
-    // --- User Management Methods ---
+    // --- Leave Request CRUD Methods ---
 
+    /**
+     * Inserts a new leave request record into the database.
+     *
+     * @param leaveRequest The LeaveRequest object to insert (ID should be null).
+     * @return The generated ID of the inserted request, or -1 if insertion failed.
+     */
+    public int insertLeaveRequest(LeaveRequest leaveRequest) {
+        if (connection == null || leaveRequest == null) {
+            System.err.println("Cannot insert leave request: Invalid input or no DB connection.");
+            return -1;
+        }
+        // ID should be null or 0 as it's auto-generated
+        if (leaveRequest.getId() != null && leaveRequest.getId() != 0) {
+            System.err.println("Warning: Attempting to insert leave request with pre-existing ID. ID will be ignored and auto-generated.");
+        }
+
+
+        try (PreparedStatement pstmt = connection.prepareStatement(INSERT_LEAVE_SQL, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setString(1, leaveRequest.getEmployeeId());
+            pstmt.setString(2, leaveRequest.getStartDate() != null ? leaveRequest.getStartDate().format(DATE_FORMATTER) : null);
+            pstmt.setString(3, leaveRequest.getEndDate() != null ? leaveRequest.getEndDate().format(DATE_FORMATTER) : null);
+            pstmt.setString(4, leaveRequest.getReason());
+            pstmt.setString(5, leaveRequest.getStatus().name()); // Convert enum to string
+            pstmt.setString(6, leaveRequest.getManagerComments());
+
+            int affectedRows = pstmt.executeUpdate();
+
+            if (affectedRows > 0) {
+                try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        int generatedId = generatedKeys.getInt(1);
+                        System.out.println("Leave request inserted successfully (ID: " + generatedId + ")");
+                        return generatedId; // Return the auto-generated ID
+                    } else {
+                        System.err.println("Leave request insertion succeeded but failed to retrieve generated ID.");
+                        return -1; // Indicate an issue retrieving the ID
+                    }
+                }
+            } else {
+                System.err.println("Leave request insertion failed, no rows affected.");
+                return -1;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error inserting leave request for employee ID " + leaveRequest.getEmployeeId() + ": " + e.getMessage());
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
+    /**
+     * Retrieves all leave request records from the database.
+     *
+     * @return A List of LeaveRequest objects, or an empty list if none found or error occurs.
+     */
+    public List<LeaveRequest> getAllLeaveRequests() {
+        List<LeaveRequest> requests = new ArrayList<>();
+        if (connection == null) {
+            System.err.println("Cannot get leave requests: No DB connection.");
+            return requests;
+        }
+
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(SELECT_ALL_LEAVES_SQL)) {
+
+            while (rs.next()) {
+                requests.add(mapResultSetToLeaveRequest(rs));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving all leave requests: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return requests;
+    }
+
+    /**
+     * Retrieves a single leave request by its Integer ID.
+     *
+     * @param id The Integer ID of the leave request.
+     * @return The LeaveRequest object if found, otherwise null.
+     */
+    public LeaveRequest getLeaveRequestById(int id) {
+        if (connection == null || id <= 0) {
+            System.err.println("Cannot get leave request by ID: Invalid ID or no DB connection.");
+            return null;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(SELECT_LEAVE_BY_ID_SQL)) {
+            pstmt.setInt(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToLeaveRequest(rs);
+                } else {
+                    // System.out.println("Leave request not found with ID: " + id); // Less verbose
+                    return null;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving leave request by ID (" + id + "): " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Retrieves all leave requests for a specific employee.
+     *
+     * @param employeeId The String UUID of the employee.
+     * @return A List of LeaveRequest objects for the employee, or an empty list.
+     */
+    public List<LeaveRequest> getLeaveRequestsByEmployeeId(String employeeId) {
+        List<LeaveRequest> requests = new ArrayList<>();
+        if (connection == null || employeeId == null || employeeId.trim().isEmpty()) {
+            System.err.println("Cannot get leave requests by employee ID: Invalid input or no DB connection.");
+            return requests;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(SELECT_LEAVES_BY_EMPLOYEE_ID_SQL)) {
+            pstmt.setString(1, employeeId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    requests.add(mapResultSetToLeaveRequest(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving leave requests for employee ID (" + employeeId + "): " + e.getMessage());
+            e.printStackTrace();
+        }
+        return requests;
+    }
+
+    /**
+     * Retrieves all *approved* leave requests for a specific employee.
+     * Used for calculating used leave days.
+     *
+     * @param employeeId The String UUID of the employee.
+     * @return A List of approved LeaveRequest objects for the employee, or an empty list.
+     */
+    public List<LeaveRequest> getApprovedLeaveRequestsByEmployeeId(String employeeId) {
+        List<LeaveRequest> requests = new ArrayList<>();
+        if (connection == null || employeeId == null || employeeId.trim().isEmpty()) {
+            System.err.println("Cannot get approved leave requests: Invalid input or no DB connection.");
+            return requests;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(SELECT_APPROVED_LEAVES_BY_EMPLOYEE_ID_SQL)) {
+            pstmt.setString(1, employeeId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    requests.add(mapResultSetToLeaveRequest(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving approved leave requests for employee ID (" + employeeId + "): " + e.getMessage());
+            e.printStackTrace();
+        }
+        return requests;
+    }
+
+
+    /**
+     * Updates an existing leave request record in the database.
+     *
+     * @param leaveRequest The LeaveRequest object containing updated data (must have correct Integer ID).
+     * @return true if the update was successful, false otherwise.
+     */
+    public boolean updateLeaveRequest(LeaveRequest leaveRequest) {
+        if (connection == null || leaveRequest == null || leaveRequest.getId() == null || leaveRequest.getId() <= 0) {
+            System.err.println("Cannot update leave request: Invalid input or no DB connection.");
+            return false;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_LEAVE_SQL)) {
+            pstmt.setString(1, leaveRequest.getEmployeeId());
+            pstmt.setString(2, leaveRequest.getStartDate() != null ? leaveRequest.getStartDate().format(DATE_FORMATTER) : null);
+            pstmt.setString(3, leaveRequest.getEndDate() != null ? leaveRequest.getEndDate().format(DATE_FORMATTER) : null);
+            pstmt.setString(4, leaveRequest.getReason());
+            pstmt.setString(5, leaveRequest.getStatus().name()); // Enum to string
+            pstmt.setString(6, leaveRequest.getManagerComments());
+            pstmt.setInt(7, leaveRequest.getId()); // WHERE clause uses the Integer ID
+
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                System.out.println("Leave request updated successfully (ID: " + leaveRequest.getId() + ")");
+                return true;
+            } else {
+                System.out.println("Leave request not found or no changes made during update (ID: " + leaveRequest.getId() + ")");
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error updating leave request (ID: " + leaveRequest.getId() + "): " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Deletes a leave request record from the database using its Integer ID.
+     *
+     * @param id The Integer ID of the leave request to delete.
+     * @return true if deletion was successful, false otherwise.
+     */
+    public boolean deleteLeaveRequest(int id) {
+        if (connection == null || id <= 0) {
+            System.err.println("Cannot delete leave request: Invalid ID or no DB connection.");
+            return false;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(DELETE_LEAVE_SQL)) {
+            pstmt.setInt(1, id); // Use Integer ID
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                System.out.println("Leave request deleted successfully (ID: " + id + ")");
+                return true;
+            } else {
+                System.out.println("Leave request not found for deletion (ID: " + id + ")");
+                return false;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error deleting leave request (ID: " + id + "): " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Helper method to map a row from a ResultSet to a LeaveRequest object.
+     *
+     * @param rs The ResultSet cursor, positioned at the row to map.
+     * @return A LeaveRequest object populated with data.
+     * @throws SQLException If a database access error occurs.
+     */
+    private LeaveRequest mapResultSetToLeaveRequest(ResultSet rs) throws SQLException {
+        int id = rs.getInt("id");
+        String employeeId = rs.getString("employee_id");
+        LocalDate startDate = parseDate(rs.getString("start_date"));
+        LocalDate endDate = parseDate(rs.getString("end_date"));
+        String reason = rs.getString("reason");
+        String statusStr = rs.getString("status");
+        String managerComments = rs.getString("manager_comments");
+
+        LeaveRequest.LeaveStatus status = LeaveRequest.LeaveStatus.PENDING; // Default
+        try {
+            if (statusStr != null && !statusStr.isEmpty()) {
+                status = LeaveRequest.LeaveStatus.valueOf(statusStr.toUpperCase());
+            }
+        } catch (IllegalArgumentException e) {
+            System.err.println("Warning: Invalid leave status value '" + statusStr + "' found in database for leave ID " + id + ". Defaulting to PENDING.");
+        }
+
+        // Use the constructor that includes the Integer ID
+        LeaveRequest request = new LeaveRequest(id, employeeId, startDate, endDate, reason, status, managerComments);
+        return request;
+    }
+
+    /**
+     * Safely parses a date string using the predefined formatter.
+     * @param dateStr The date string (e.g., "yyyy-MM-dd") or null.
+     * @return The LocalDate object or null if input is null, empty, or invalid format.
+     */
+    private LocalDate parseDate(String dateStr) {
+        if (dateStr == null || dateStr.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(dateStr, DATE_FORMATTER);
+        } catch (DateTimeParseException e) {
+            System.err.println("Warning: Could not parse date string '" + dateStr + "': " + e.getMessage());
+            return null; // Return null or handle error as appropriate
+        }
+    }
+
+
+    // --- User Management Methods --- (Keep existing methods: hashPassword, insertUser)
+    // ... (User methods from the original code) ...
     /**
      * Hashes a password using SHA-256.
      * @param password The plain text password.
@@ -453,6 +734,7 @@ public class DatabaseDriver {
         }
     }
 
+    // --- Connection Management ---
     /**
      * Closes the database connection. Should be called when the application shuts down.
      */

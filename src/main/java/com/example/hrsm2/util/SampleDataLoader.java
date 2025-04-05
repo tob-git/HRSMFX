@@ -138,7 +138,7 @@ public class SampleDataLoader {
                 .anyMatch(user -> user.getRole() == User.UserRole.HR_ADMIN);
         if (!hasHrUsers) {
             // The DatabaseDriver will hash the password during user creation.
-            userService.createUser("hr", "HR Administrator", "password123", User.UserRole.HR_ADMIN);
+            userService.createUser("hr", "hr", "John Doe", User.UserRole.HR_ADMIN);
         }
     }
 }

@@ -5,23 +5,24 @@ import com.example.hrsm2.util.DatabaseDriver;
 
 import java.util.Collections;
 import java.util.List;
-// Removed unused imports
-
+import java.util.UUID; // Keep UUID for potential ID generation if needed elsewhere
 
 public class EmployeeService {
     // Singleton instance
     private static EmployeeService instance;
 
-    // Reference to the data access layer
+    // Reference to the SINGLETON data access layer instance
     private final DatabaseDriver dbDriver;
 
+    // Private constructor to enforce Singleton pattern
     private EmployeeService() {
-        // Initialize the database driver
-        dbDriver = new DatabaseDriver();
+        // *** MODIFIED HERE: Use the Singleton instance of DatabaseDriver ***
+        dbDriver = DatabaseDriver.getInstance();
     }
 
     /**
      * Gets the singleton instance of the EmployeeService.
+     * Ensures only one instance of this service exists.
      *
      * @return The single instance of EmployeeService.
      */
@@ -32,6 +33,12 @@ public class EmployeeService {
         return instance;
     }
 
+    /**
+     * Retrieves all employees from the database.
+     * Includes basic error handling.
+     *
+     * @return A List of all Employee objects, or an empty list if an error occurs.
+     */
     public List<Employee> getAllEmployees() {
         try {
             return dbDriver.getAllEmployees();
@@ -42,8 +49,17 @@ public class EmployeeService {
         }
     }
 
+    /**
+     * Retrieves a specific employee by their String ID (UUID).
+     * Includes basic error handling.
+     *
+     * @param id The String UUID of the employee to retrieve.
+     * @return The Employee object if found, null otherwise or if an error occurs.
+     */
     public Employee getEmployeeById(String id) {
+        // Basic validation for ID format could be added here if needed
         if (id == null || id.trim().isEmpty()) {
+            System.err.println("Service Info: getEmployeeById called with null or empty ID.");
             return null;
         }
         try {
@@ -57,26 +73,43 @@ public class EmployeeService {
 
     /**
      * Adds a new employee to the system.
-     * The Employee object should have its UUID generated before calling this method.
+     * Ensures the Employee object has a valid UUID before attempting insertion.
      * Delegates the insertion operation to the DatabaseDriver.
      *
-     * @param employee The Employee object to add (must have a valid UUID).
+     * @param employee The Employee object to add. If ID is null, a new UUID will be generated.
      * @return true if the employee was added successfully, false otherwise.
      */
     public boolean addEmployee(Employee employee) {
-        if (employee == null || employee.getId() == null) {
-            System.err.println("Service Error: Cannot add null employee or employee with null ID.");
+        if (employee == null) {
+            System.err.println("Service Error: Cannot add null employee.");
             return false;
         }
+        // Ensure employee has a UUID before inserting
+        if (employee.getId() == null || employee.getId().trim().isEmpty()) {
+            String newId = UUID.randomUUID().toString();
+            System.out.println("Service Info: Generating new UUID for employee: " + newId);
+            employee.setId(newId);
+        }
+
         try {
-            // Basic validation example (could add more complex business rules here)
+            // Basic business rule validation (example)
             if (employee.getSalary() < 0) {
-                System.err.println("Service Error: Salary cannot be negative.");
+                System.err.println("Service Error: Salary cannot be negative for employee ID " + employee.getId());
                 return false;
             }
+            // Add more validation: check email format, phone format, etc.
+            // if (!isValidEmail(employee.getEmail())) { ... return false; }
+
             return dbDriver.insertEmployee(employee);
         } catch (Exception e) {
-            System.err.println("Service Error: Failed to add employee ID " + employee.getId() + ". " + e.getMessage());
+            // Log the specific employee ID if available
+            String employeeId = (employee != null && employee.getId() != null) ? employee.getId() : "N/A";
+            System.err.println("Service Error: Failed to add employee ID " + employeeId + ". " + e.getMessage());
+            // Check for specific DB errors (like unique constraint violation)
+            if (e.getMessage() != null && e.getMessage().contains("UNIQUE constraint failed: Employee.email")) {
+                System.err.println("Service Hint: The email address might already be in use.");
+                // Optionally re-throw a custom exception or return a specific error code/message
+            }
             e.printStackTrace();
             return false;
         }
@@ -90,19 +123,26 @@ public class EmployeeService {
      * @return true if the update was successful, false otherwise.
      */
     public boolean updateEmployee(Employee employee) {
-        if (employee == null || employee.getId() == null) {
-            System.err.println("Service Error: Cannot update null employee or employee with null ID.");
+        if (employee == null || employee.getId() == null || employee.getId().trim().isEmpty()) {
+            System.err.println("Service Error: Cannot update null employee or employee with null/empty ID.");
             return false;
         }
         try {
-            // Basic validation example
+            // Basic business rule validation (example)
             if (employee.getSalary() < 0) {
-                System.err.println("Service Error: Salary cannot be negative.");
+                System.err.println("Service Error: Salary cannot be negative for employee ID " + employee.getId());
                 return false;
             }
+            // Add more validation as needed
+
             return dbDriver.updateEmployee(employee);
         } catch (Exception e) {
             System.err.println("Service Error: Failed to update employee ID " + employee.getId() + ". " + e.getMessage());
+            // Check for specific DB errors (like unique constraint violation on email update)
+            if (e.getMessage() != null && e.getMessage().contains("UNIQUE constraint failed: Employee.email")) {
+                System.err.println("Service Hint: The updated email address might already be in use by another employee.");
+                // Optionally re-throw a custom exception or return a specific error code/message
+            }
             e.printStackTrace();
             return false;
         }
@@ -111,6 +151,7 @@ public class EmployeeService {
     /**
      * Deletes an employee from the system using their String ID (UUID).
      * Delegates the deletion operation to the DatabaseDriver.
+     * Consider adding checks here (e.g., cannot delete employee with active assignments/payroll).
      *
      * @param id The String UUID of the employee to delete.
      * @return true if the deletion was successful, false otherwise.
@@ -121,31 +162,53 @@ public class EmployeeService {
             return false;
         }
         try {
+            // Potential Business Logic: Check if employee can be deleted
+            // e.g., boolean hasActiveLeave = leaveRequestService.hasActiveLeave(id);
+            // if (hasActiveLeave) {
+            //     System.err.println("Service Info: Cannot delete employee " + id + " due to active leave requests.");
+            //     return false;
+            // }
+
             return dbDriver.deleteEmployee(id);
         } catch (Exception e) {
             System.err.println("Service Error: Failed to delete employee ID " + id + ". " + e.getMessage());
+            // DB Foreign Key constraints should handle related data deletion if set up with CASCADE,
+            // otherwise, deletion might fail here if related records exist.
             e.printStackTrace();
             return false;
         }
     }
 
+    /**
+     * Searches for employees based on a keyword matching various fields.
+     * Delegates the search operation to the DatabaseDriver.
+     *
+     * @param keyword The search term (can be null or empty to return all employees).
+     * @return A List of matching Employee objects, or an empty list if an error occurs.
+     */
     public List<Employee> searchEmployees(String keyword) {
-        // Service layer might cleanse the keyword, but for now, pass directly
+        // Service layer might cleanse/validate the keyword, but for now, pass directly
+        String sanitizedKeyword = (keyword == null) ? "" : keyword.trim(); // Example sanitization
         try {
-            return dbDriver.searchEmployees(keyword);
+            return dbDriver.searchEmployees(sanitizedKeyword);
         } catch (Exception e) {
-            System.err.println("Service Error: Failed to search employees with keyword '" + keyword + "'. " + e.getMessage());
+            System.err.println("Service Error: Failed to search employees with keyword '" + sanitizedKeyword + "'. " + e.getMessage());
             e.printStackTrace();
             return Collections.emptyList();
         }
     }
 
     /**
-     * Closes the underlying database connection.
-     * Should be called when the application is shutting down.
+     * Closes the underlying database connection via the DatabaseDriver instance.
+     * This method might not be strictly necessary in the service layer itself,
+     * as connection management could be handled globally at application shutdown.
+     * However, keeping it allows explicit closure request if needed.
      */
     public void closeDatabaseConnection() {
-        System.out.println("EmployeeService requesting database connection closure.");
-        dbDriver.closeConnection();
+        // This method is less critical now that DatabaseDriver is a Singleton,
+        // as only the Singleton's close method needs to be called once at app shutdown.
+        // Calling it multiple times via different services won't hurt if DatabaseDriver handles it gracefully.
+        System.out.println("EmployeeService requesting database connection closure (via Singleton Driver).");
+        dbDriver.closeConnection(); // Delegates to the single driver instance's close method
     }
 }
