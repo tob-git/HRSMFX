@@ -3,7 +3,8 @@ package com.example.hrsm2.util;
 import com.example.hrsm2.model.Employee;
 import com.example.hrsm2.model.LeaveRequest;
 import com.example.hrsm2.model.Payroll;
-import com.example.hrsm2.model.User; // Import the User model
+import com.example.hrsm2.model.User;
+import com.example.hrsm2.model.PerformanceEvaluation;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -67,15 +68,15 @@ public class DatabaseDriver {
 
 
     private static final String CREATE_EVALUATION_TABLE = "CREATE TABLE IF NOT EXISTS PerformanceEvaluations ("
-            + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            + "employee_id TEXT NOT NULL, " // Foreign Key referencing Employee ID (TEXT)
-            + "date TEXT, " // Date of evaluation
-            + "rating INTEGER, " // e.g., 1-5 scale
+            + "id TEXT PRIMARY KEY, "                  // Store UUID as TEXT
+            + "employee_id TEXT NOT NULL, "           // Foreign Key referencing Employee ID (TEXT)
+            + "evaluation_date TEXT NOT NULL, "       // Stored as 'yyyy-MM-dd'
+            + "rating INTEGER, "                      // e.g., 1-5 scale
             + "strengths TEXT, "
-            + "areas_of_improvements TEXT, "
+            + "areas_for_improvement TEXT, "          // snake_case for consistency
             + "comments TEXT, "
-            + "reviewed_by TEXT, " // Reviewer's name or ID
-            + "FOREIGN KEY(employee_id) REFERENCES Employee(id) ON DELETE CASCADE"
+            + "reviewed_by TEXT, "                    // Reviewer's name or ID
+            + "FOREIGN KEY(employee_id) REFERENCES Employee(id) ON DELETE CASCADE" // Cascade delete
             + ");";
 
     private static final String CREATE_USER_TABLE = "CREATE TABLE IF NOT EXISTS UserManagement ("
@@ -132,6 +133,22 @@ public class DatabaseDriver {
             + "net_salary = ?, status = ? WHERE id = ?";
 
     private static final String DELETE_PAYROLL_SQL = "DELETE FROM Payroll WHERE id = ?";
+
+    // --- SQL CRUD Statements for PerformanceEvaluation ---
+    private static final String INSERT_EVALUATION_SQL = "INSERT INTO PerformanceEvaluations("
+            + "id, employee_id, evaluation_date, rating, strengths, "
+            + "areas_for_improvement, comments, reviewed_by) "
+            + "VALUES(?,?,?,?,?,?,?,?)";
+
+    private static final String SELECT_ALL_EVALUATIONS_SQL = "SELECT * FROM PerformanceEvaluations ORDER BY evaluation_date DESC, employee_id";
+    private static final String SELECT_EVALUATION_BY_ID_SQL = "SELECT * FROM PerformanceEvaluations WHERE id = ?";
+    private static final String SELECT_EVALUATIONS_BY_EMPLOYEE_ID_SQL = "SELECT * FROM PerformanceEvaluations WHERE employee_id = ? ORDER BY evaluation_date DESC";
+
+    private static final String UPDATE_EVALUATION_SQL = "UPDATE PerformanceEvaluations SET "
+            + "employee_id = ?, evaluation_date = ?, rating = ?, strengths = ?, "
+            + "areas_for_improvement = ?, comments = ?, reviewed_by = ? WHERE id = ?";
+
+    private static final String DELETE_EVALUATION_SQL = "DELETE FROM PerformanceEvaluations WHERE id = ?";
 
     private Connection connection;
 
@@ -1173,6 +1190,198 @@ public class DatabaseDriver {
         payroll.setStatus(status);
 
         return payroll;
+    }
+
+    /**
+     * Inserts a new performance evaluation record into the database.
+     * Assumes the PerformanceEvaluation object has a non-null, valid UUID assigned.
+     *
+     * @param evaluation The PerformanceEvaluation object to insert.
+     * @return true if insertion was successful, false otherwise.
+     */
+    public boolean insertEvaluation(PerformanceEvaluation evaluation) {
+        if (connection == null || evaluation == null || evaluation.getId() == null || evaluation.getId().trim().isEmpty()) {
+            System.err.println("Cannot insert evaluation: Invalid input or no DB connection.");
+            return false;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(INSERT_EVALUATION_SQL)) {
+            pstmt.setString(1, evaluation.getId());
+            pstmt.setString(2, evaluation.getEmployeeId());
+            pstmt.setString(3, evaluation.getEvaluationDate() != null ? evaluation.getEvaluationDate().format(DATE_FORMATTER) : null);
+            pstmt.setInt(4, evaluation.getPerformanceRating());
+            pstmt.setString(5, evaluation.getStrengths());
+            pstmt.setString(6, evaluation.getAreasForImprovement());
+            pstmt.setString(7, evaluation.getComments());
+            pstmt.setString(8, evaluation.getReviewedBy());
+
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 19) { // SQLite constraint violation
+                System.err.println("Error inserting evaluation: Constraint violation (ID likely exists): " + e.getMessage());
+            } else {
+                System.err.println("Error inserting evaluation (ID: " + evaluation.getId() + "): " + e.getMessage());
+                e.printStackTrace();
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves all performance evaluation records from the database.
+     *
+     * @return A List of PerformanceEvaluation objects, or an empty list if none found or error occurs.
+     */
+    public List<PerformanceEvaluation> getAllEvaluations() {
+        List<PerformanceEvaluation> evaluationList = new ArrayList<>();
+        if (connection == null) {
+            System.err.println("Cannot get evaluations: No DB connection.");
+            return evaluationList;
+        }
+
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(SELECT_ALL_EVALUATIONS_SQL)) {
+            while (rs.next()) {
+                evaluationList.add(mapResultSetToEvaluation(rs));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving all evaluations: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return evaluationList;
+    }
+
+    /**
+     * Retrieves a single performance evaluation record by its String ID (UUID).
+     *
+     * @param id The String UUID of the evaluation record.
+     * @return The PerformanceEvaluation object if found, otherwise null.
+     */
+    public PerformanceEvaluation getEvaluationById(String id) {
+        if (connection == null || id == null || id.trim().isEmpty()) {
+            return null;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(SELECT_EVALUATION_BY_ID_SQL)) {
+            pstmt.setString(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToEvaluation(rs);
+                } else {
+                    return null; // Not found
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving evaluation by ID (" + id + "): " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Retrieves all performance evaluation records for a specific employee.
+     *
+     * @param employeeId The String UUID of the employee.
+     * @return A List of PerformanceEvaluation objects for the employee, or an empty list.
+     */
+    public List<PerformanceEvaluation> getEvaluationsByEmployeeId(String employeeId) {
+        List<PerformanceEvaluation> evaluationList = new ArrayList<>();
+        if (connection == null || employeeId == null || employeeId.trim().isEmpty()) {
+            System.err.println("Cannot get evaluations by employee ID: Invalid input or no DB connection.");
+            return evaluationList;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(SELECT_EVALUATIONS_BY_EMPLOYEE_ID_SQL)) {
+            pstmt.setString(1, employeeId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    evaluationList.add(mapResultSetToEvaluation(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving evaluations for employee ID (" + employeeId + "): " + e.getMessage());
+            e.printStackTrace();
+        }
+        return evaluationList;
+    }
+
+    /**
+     * Updates an existing performance evaluation record in the database.
+     *
+     * @param evaluation The PerformanceEvaluation object containing updated data (must have correct ID).
+     * @return true if the update was successful, false otherwise.
+     */
+    public boolean updateEvaluation(PerformanceEvaluation evaluation) {
+        if (connection == null || evaluation == null || evaluation.getId() == null || evaluation.getId().trim().isEmpty()) {
+            System.err.println("Cannot update evaluation: Invalid input or no DB connection.");
+            return false;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_EVALUATION_SQL)) {
+            pstmt.setString(1, evaluation.getEmployeeId());
+            pstmt.setString(2, evaluation.getEvaluationDate() != null ? evaluation.getEvaluationDate().format(DATE_FORMATTER) : null);
+            pstmt.setInt(3, evaluation.getPerformanceRating());
+            pstmt.setString(4, evaluation.getStrengths());
+            pstmt.setString(5, evaluation.getAreasForImprovement());
+            pstmt.setString(6, evaluation.getComments());
+            pstmt.setString(7, evaluation.getReviewedBy());
+            pstmt.setString(8, evaluation.getId()); // WHERE clause
+
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+
+        } catch (SQLException e) {
+            System.err.println("Error updating evaluation (ID: " + evaluation.getId() + "): " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Deletes a performance evaluation record from the database using its String ID (UUID).
+     *
+     * @param id The String UUID of the evaluation record to delete.
+     * @return true if deletion was successful, false otherwise.
+     */
+    public boolean deleteEvaluation(String id) {
+        if (connection == null || id == null || id.trim().isEmpty()) {
+            System.err.println("Cannot delete evaluation: Invalid ID or no DB connection.");
+            return false;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(DELETE_EVALUATION_SQL)) {
+            pstmt.setString(1, id);
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException e) {
+            System.err.println("Error deleting evaluation (ID: " + id + "): " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Helper method to map a row from a ResultSet to a PerformanceEvaluation object.
+     *
+     * @param rs The ResultSet cursor, positioned at the row to map.
+     * @return A PerformanceEvaluation object populated with data.
+     * @throws SQLException If a database access error occurs.
+     */
+    private PerformanceEvaluation mapResultSetToEvaluation(ResultSet rs) throws SQLException {
+        String id = rs.getString("id");
+        String employeeId = rs.getString("employee_id");
+        LocalDate evaluationDate = parseDate(rs.getString("evaluation_date")); // Use existing helper
+        int rating = rs.getInt("rating");
+        String strengths = rs.getString("strengths");
+        String areasForImprovement = rs.getString("areas_for_improvement");
+        String comments = rs.getString("comments");
+        String reviewedBy = rs.getString("reviewed_by");
+
+        // Use the constructor that takes all arguments, including the ID from the DB
+        return new PerformanceEvaluation(id, employeeId, evaluationDate, rating, strengths,
+                areasForImprovement, comments, reviewedBy);
     }
 
     /**
