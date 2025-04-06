@@ -1,12 +1,8 @@
 package com.example.hrsm2.service;
 
 import com.example.hrsm2.model.LeaveRequest;
-import com.example.hrsm2.util.DatabaseDriver; // Import DatabaseDriver
-
-import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
+import com.example.hrsm2.util.DatabaseDriver;
 import java.util.List;
-// Removed unused imports: Map, HashMap, UUID, Collectors, Employee, ArrayList
 
 public class LeaveRequestService {
     private static LeaveRequestService instance;

@@ -2,6 +2,7 @@ package com.example.hrsm2.util;
 
 import com.example.hrsm2.model.Employee;
 import com.example.hrsm2.model.LeaveRequest;
+import com.example.hrsm2.model.Payroll;
 import com.example.hrsm2.model.User; // Import the User model
 
 import java.nio.charset.StandardCharsets;
@@ -13,6 +14,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.lang.reflect.Field;
 
 /**
  * Handles all direct database interactions using JDBC and SQLite.
@@ -48,20 +50,21 @@ public class DatabaseDriver {
             + "FOREIGN KEY(employee_id) REFERENCES Employee(id) ON DELETE CASCADE" // Cascade delete if employee is removed
             + ");";
 
-    private static final String CREATE_PAYROLL_TABLE = "CREATE TABLE IF NOT EXISTS PayrollProcessing ("
-            + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            + "employee_id TEXT NOT NULL, " // Foreign Key referencing Employee ID (TEXT)
-            + "start_date TEXT, " // Pay period start
-            + "end_date TEXT, "   // Pay period end
-            + "base_salary REAL, "
-            + "overtime REAL, "
-            + "bonus REAL, "
-            + "tax REAL, "
-            + "other_deductions REAL, "
-            + "net_salary REAL, "
-            + "status TEXT, " // e.g., 'Processed', 'Pending'
+    private static final String CREATE_PAYROLL_TABLE = "CREATE TABLE IF NOT EXISTS Payroll ("
+            + "id TEXT PRIMARY KEY, "                  // UUID stored as TEXT
+            + "employee_id TEXT NOT NULL, "           // Foreign Key referencing Employee ID (TEXT)
+            + "pay_period_start TEXT NOT NULL, "     // Stored as 'yyyy-MM-dd'
+            + "pay_period_end TEXT NOT NULL, "       // Stored as 'yyyy-MM-dd'
+            + "base_salary REAL DEFAULT 0.0, "
+            + "overtime_pay REAL DEFAULT 0.0, "       // Changed from 'overtime'
+            + "bonus REAL DEFAULT 0.0, "
+            + "tax_deductions REAL DEFAULT 0.0, "     // Changed from 'tax'
+            + "other_deductions REAL DEFAULT 0.0, "
+            + "net_salary REAL DEFAULT 0.0, "
+            + "status TEXT NOT NULL, "                // e.g., 'PENDING', 'PROCESSED', 'PAID'
             + "FOREIGN KEY(employee_id) REFERENCES Employee(id) ON DELETE CASCADE"
             + ");";
+
 
     private static final String CREATE_EVALUATION_TABLE = "CREATE TABLE IF NOT EXISTS PerformanceEvaluations ("
             + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -112,6 +115,23 @@ public class DatabaseDriver {
     // Update only allows changing full name, password hash, and role for a given username
     private static final String UPDATE_USER_SQL = "UPDATE UserManagement SET full_name = ?, password = ?, role = ? WHERE username = ?";
     private static final String DELETE_USER_SQL = "DELETE FROM UserManagement WHERE username = ?";
+
+    // --- SQL CRUD Statements for Payroll ---
+    private static final String INSERT_PAYROLL_SQL = "INSERT INTO Payroll("
+            + "id, employee_id, pay_period_start, pay_period_end, base_salary, "
+            + "overtime_pay, bonus, tax_deductions, other_deductions, net_salary, status) "
+            + "VALUES(?,?,?,?,?,?,?,?,?,?,?)";
+
+    private static final String SELECT_ALL_PAYROLLS_SQL = "SELECT * FROM Payroll ORDER BY pay_period_start DESC, employee_id";
+    private static final String SELECT_PAYROLL_BY_ID_SQL = "SELECT * FROM Payroll WHERE id = ?";
+    private static final String SELECT_PAYROLLS_BY_EMPLOYEE_ID_SQL = "SELECT * FROM Payroll WHERE employee_id = ? ORDER BY pay_period_start DESC";
+
+    private static final String UPDATE_PAYROLL_SQL = "UPDATE Payroll SET "
+            + "employee_id = ?, pay_period_start = ?, pay_period_end = ?, base_salary = ?, "
+            + "overtime_pay = ?, bonus = ?, tax_deductions = ?, other_deductions = ?, "
+            + "net_salary = ?, status = ? WHERE id = ?";
+
+    private static final String DELETE_PAYROLL_SQL = "DELETE FROM Payroll WHERE id = ?";
 
     private Connection connection;
 
@@ -167,7 +187,7 @@ public class DatabaseDriver {
             stmt.execute(CREATE_LEAVE_TABLE);
             stmt.execute(CREATE_PAYROLL_TABLE);
             stmt.execute(CREATE_EVALUATION_TABLE);
-            stmt.execute(CREATE_USER_TABLE); // Create User table
+            stmt.execute(CREATE_USER_TABLE);
             System.out.println("Database tables checked/created successfully.");
 
         } catch (SQLException e) {
@@ -918,6 +938,241 @@ public class DatabaseDriver {
 
         // Create user object using the constructor that takes username, HASHED password, full name, and role.
         return new User(username, hashedPassword, fullName, role);
+    }
+
+    /**
+     * Inserts a new payroll record into the database.
+     * Assumes the Payroll object has a non-null, valid UUID assigned.
+     *
+     * @param payroll The Payroll object to insert.
+     * @return true if insertion was successful, false otherwise.
+     */
+    public boolean insertPayroll(Payroll payroll) {
+        if (connection == null || payroll == null || payroll.getId() == null || payroll.getId().trim().isEmpty()) {
+            System.err.println("Cannot insert payroll: Invalid input or no DB connection.");
+            return false;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(INSERT_PAYROLL_SQL)) {
+            pstmt.setString(1, payroll.getId());
+            pstmt.setString(2, payroll.getEmployeeId());
+            pstmt.setString(3, payroll.getPayPeriodStart() != null ? payroll.getPayPeriodStart().format(DATE_FORMATTER) : null);
+            pstmt.setString(4, payroll.getPayPeriodEnd() != null ? payroll.getPayPeriodEnd().format(DATE_FORMATTER) : null);
+            pstmt.setDouble(5, payroll.getBaseSalary());
+            pstmt.setDouble(6, payroll.getOvertimePay());
+            pstmt.setDouble(7, payroll.getBonus());
+            pstmt.setDouble(8, payroll.getTaxDeductions());
+            pstmt.setDouble(9, payroll.getOtherDeductions());
+            pstmt.setDouble(10, payroll.getNetSalary());
+            pstmt.setString(11, payroll.getStatus().name()); // Enum to String
+
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 19) { // SQLite constraint violation
+                System.err.println("Error inserting payroll: Constraint violation (ID likely exists): " + e.getMessage());
+            } else {
+                System.err.println("Error inserting payroll (ID: " + payroll.getId() + "): " + e.getMessage());
+                e.printStackTrace();
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves all payroll records from the database.
+     *
+     * @return A List of Payroll objects, or an empty list if none found or error occurs.
+     */
+    public List<Payroll> getAllPayrolls() {
+        List<Payroll> payrollList = new ArrayList<>();
+        if (connection == null) {
+            System.err.println("Cannot get payrolls: No DB connection.");
+            return payrollList;
+        }
+
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(SELECT_ALL_PAYROLLS_SQL)) {
+            while (rs.next()) {
+                payrollList.add(mapResultSetToPayroll(rs));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving all payrolls: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return payrollList;
+    }
+
+    /**
+     * Retrieves a single payroll record by its String ID (UUID).
+     *
+     * @param id The String UUID of the payroll record.
+     * @return The Payroll object if found, otherwise null.
+     */
+    public Payroll getPayrollById(String id) {
+        if (connection == null || id == null || id.trim().isEmpty()) {
+            return null;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(SELECT_PAYROLL_BY_ID_SQL)) {
+            pstmt.setString(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToPayroll(rs);
+                } else {
+                    return null; // Not found
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving payroll by ID (" + id + "): " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Retrieves all payroll records for a specific employee.
+     *
+     * @param employeeId The String UUID of the employee.
+     * @return A List of Payroll objects for the employee, or an empty list.
+     */
+    public List<Payroll> getPayrollsByEmployeeId(String employeeId) {
+        List<Payroll> payrollList = new ArrayList<>();
+        if (connection == null || employeeId == null || employeeId.trim().isEmpty()) {
+            System.err.println("Cannot get payrolls by employee ID: Invalid input or no DB connection.");
+            return payrollList;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(SELECT_PAYROLLS_BY_EMPLOYEE_ID_SQL)) {
+            pstmt.setString(1, employeeId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    payrollList.add(mapResultSetToPayroll(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving payrolls for employee ID (" + employeeId + "): " + e.getMessage());
+            e.printStackTrace();
+        }
+        return payrollList;
+    }
+
+    /**
+     * Updates an existing payroll record in the database.
+     *
+     * @param payroll The Payroll object containing updated data (must have correct ID).
+     * @return true if the update was successful, false otherwise.
+     */
+    public boolean updatePayroll(Payroll payroll) {
+        if (connection == null || payroll == null || payroll.getId() == null || payroll.getId().trim().isEmpty()) {
+            System.err.println("Cannot update payroll: Invalid input or no DB connection.");
+            return false;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(UPDATE_PAYROLL_SQL)) {
+            pstmt.setString(1, payroll.getEmployeeId());
+            pstmt.setString(2, payroll.getPayPeriodStart() != null ? payroll.getPayPeriodStart().format(DATE_FORMATTER) : null);
+            pstmt.setString(3, payroll.getPayPeriodEnd() != null ? payroll.getPayPeriodEnd().format(DATE_FORMATTER) : null);
+            pstmt.setDouble(4, payroll.getBaseSalary());
+            pstmt.setDouble(5, payroll.getOvertimePay());
+            pstmt.setDouble(6, payroll.getBonus());
+            pstmt.setDouble(7, payroll.getTaxDeductions());
+            pstmt.setDouble(8, payroll.getOtherDeductions());
+            pstmt.setDouble(9, payroll.getNetSalary());
+            pstmt.setString(10, payroll.getStatus().name()); // Enum to String
+            pstmt.setString(11, payroll.getId()); // WHERE clause
+
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+
+        } catch (SQLException e) {
+            System.err.println("Error updating payroll (ID: " + payroll.getId() + "): " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Deletes a payroll record from the database using its String ID (UUID).
+     *
+     * @param id The String UUID of the payroll record to delete.
+     * @return true if deletion was successful, false otherwise.
+     */
+    public boolean deletePayroll(String id) {
+        if (connection == null || id == null || id.trim().isEmpty()) {
+            System.err.println("Cannot delete payroll: Invalid ID or no DB connection.");
+            return false;
+        }
+
+        try (PreparedStatement pstmt = connection.prepareStatement(DELETE_PAYROLL_SQL)) {
+            pstmt.setString(1, id);
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException e) {
+            System.err.println("Error deleting payroll (ID: " + id + "): " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Helper method to map a row from a ResultSet to a Payroll object.
+     *
+     * @param rs The ResultSet cursor, positioned at the row to map.
+     * @return A Payroll object populated with data.
+     * @throws SQLException If a database access error occurs.
+     */
+    private Payroll mapResultSetToPayroll(ResultSet rs) throws SQLException {
+        String id = rs.getString("id");
+        String employeeId = rs.getString("employee_id");
+        LocalDate payPeriodStart = parseDate(rs.getString("pay_period_start"));
+        LocalDate payPeriodEnd = parseDate(rs.getString("pay_period_end"));
+        double baseSalary = rs.getDouble("base_salary");
+        double overtimePay = rs.getDouble("overtime_pay");
+        double bonus = rs.getDouble("bonus");
+        double taxDeductions = rs.getDouble("tax_deductions");
+        double otherDeductions = rs.getDouble("other_deductions");
+        double netSalary = rs.getDouble("net_salary"); // Net salary is stored, recalculation is not strictly needed here
+        String statusStr = rs.getString("status");
+
+        Payroll.PayrollStatus status = Payroll.PayrollStatus.PENDING; // Default
+        try {
+            if (statusStr != null && !statusStr.isEmpty()) {
+                status = Payroll.PayrollStatus.valueOf(statusStr.toUpperCase());
+            }
+        } catch (IllegalArgumentException e) {
+            System.err.println("Warning: Invalid payroll status value '" + statusStr + "' found in database for payroll ID " + id + ". Defaulting to PENDING.");
+        }
+
+        // Use a constructor or setters to create the Payroll object
+        Payroll payroll = new Payroll(); // Use default constructor
+        payroll.setId(id); // Set the ID retrieved from DB
+        payroll.setEmployeeId(employeeId);
+        payroll.setPayPeriodStart(payPeriodStart);
+        payroll.setPayPeriodEnd(payPeriodEnd);
+        payroll.setBaseSalary(baseSalary); // Use setter to trigger recalculation if needed, though value is already from DB
+        payroll.setOvertimePay(overtimePay);
+        payroll.setBonus(bonus);
+        payroll.setTaxDeductions(taxDeductions);
+        payroll.setOtherDeductions(otherDeductions);
+        // payroll.calculateNetSalary(); // Optional: Recalculate or trust the stored value. Let's trust the stored value for now.
+        // Manually set net salary if not recalculating
+        try {
+            // Set netSalary directly as it was stored
+            Field netSalaryField = Payroll.class.getDeclaredField("netSalary");
+            netSalaryField.setAccessible(true);
+            netSalaryField.setDouble(payroll, netSalary);
+            netSalaryField.setAccessible(false);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            System.err.println("Error setting netSalary via reflection: " + e.getMessage());
+            // Fallback: recalculate if reflection fails
+            payroll.calculateNetSalary();
+        }
+
+        payroll.setStatus(status);
+
+        return payroll;
     }
 
     /**
