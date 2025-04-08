@@ -85,7 +85,7 @@ public class UserController implements Initializable {
     }
 
     // Refreshes the list from the database
-    private void refreshUserList() {
+    public void refreshUserList() {
         userList.clear();
 
         // Get all users from the service (which now gets them from the DB)

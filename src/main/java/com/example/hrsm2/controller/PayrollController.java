@@ -4,6 +4,8 @@ import com.example.hrsm2.model.Employee;
 import com.example.hrsm2.model.Payroll;
 import com.example.hrsm2.service.EmployeeService;
 import com.example.hrsm2.service.PayrollService;
+import com.example.hrsm2.event.EmployeeEvent;
+import com.example.hrsm2.event.EventManager;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -11,6 +13,7 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.util.StringConverter;
+import javafx.application.Platform;
 
 import java.net.URL;
 import java.time.LocalDate;
@@ -154,11 +157,14 @@ public class PayrollController implements Initializable {
         startDatePicker.setValue(firstOfMonth);
         endDatePicker.setValue(lastOfMonth);
         
-        // Load employee data
+        // Load employees from the service
         loadEmployees();
         
-        // Load initial payroll data
+        // Load payroll data
         refreshPayrollList();
+        
+        // Register for employee events
+        registerForEmployeeEvents();
         
         // Initialize fields with zeros
         clearForm();
@@ -365,7 +371,7 @@ public class PayrollController implements Initializable {
         markAsPaidButton.setDisable(true);
     }
     
-    private void refreshPayrollList() {
+    public void refreshPayrollList() {
         payrollList.clear();
         payrollList.addAll(payrollService.getAllPayrolls());
         payrollTable.setItems(payrollList);
@@ -493,5 +499,47 @@ public class PayrollController implements Initializable {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+    
+    /**
+     * Register this controller to listen for employee events.
+     * This allows the controller to refresh its employee list when employees are added, updated, or deleted.
+     */
+    private void registerForEmployeeEvents() {
+        EventManager eventManager = EventManager.getInstance();
+        
+        // Listen for employee added events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_ADDED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+            });
+        });
+        
+        // Listen for employee updated events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_UPDATED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+                // If the updated employee is currently selected, update the base salary
+                if (employeeComboBox.getValue() != null && 
+                    employeeComboBox.getValue().getId().equals(event.getEmployee().getId())) {
+                    updateBaseSalary(event.getEmployee());
+                    calculateNetSalary();
+                }
+            });
+        });
+        
+        // Listen for employee deleted events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_DELETED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+                // If the deleted employee was selected, clear the selection
+                if (employeeComboBox.getValue() != null && 
+                    employeeComboBox.getValue().getId().equals(event.getEmployee().getId())) {
+                    employeeComboBox.getSelectionModel().clearSelection();
+                    baseSalaryField.setText("0.00");
+                    calculateNetSalary();
+                }
+            });
+        });
     }
 } 

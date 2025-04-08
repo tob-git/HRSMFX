@@ -4,6 +4,8 @@ import com.example.hrsm2.model.Employee;
 import com.example.hrsm2.model.LeaveRequest;
 import com.example.hrsm2.service.EmployeeService; // Assuming EmployeeService uses DB now
 import com.example.hrsm2.service.LeaveRequestService;
+import com.example.hrsm2.event.EmployeeEvent;
+import com.example.hrsm2.event.EventManager;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -18,6 +20,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List; // Import List
 import java.util.ResourceBundle;
+import javafx.application.Platform;
 
 public class LeaveController implements Initializable {
     @FXML private TableView<LeaveRequest> leaveRequestTable;
@@ -132,6 +135,9 @@ public class LeaveController implements Initializable {
 
         // Initial update of requested days
         updateRequestedDays();
+        
+        // Register for employee events
+        registerForEmployeeEvents();
     }
 
     private void setupDatePicker(DatePicker datePicker) {
@@ -400,7 +406,7 @@ public class LeaveController implements Initializable {
     }
 
     // Refreshes the table data from the database
-    private void refreshLeaveRequestList() {
+    public void refreshLeaveRequestList() {
         try {
             List<LeaveRequest> requestsFromDb = leaveRequestService.getAllLeaveRequests();
             leaveRequestList.setAll(requestsFromDb); // Update the observable list
@@ -538,5 +544,45 @@ public class LeaveController implements Initializable {
         alert.setHeaderText(null); // No header text
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    /**
+     * Register this controller to listen for employee events.
+     * This allows the controller to refresh its employee list when employees are added, updated, or deleted.
+     */
+    private void registerForEmployeeEvents() {
+        EventManager eventManager = EventManager.getInstance();
+        
+        // Listen for employee added events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_ADDED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+            });
+        });
+        
+        // Listen for employee updated events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_UPDATED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+                // If the updated employee is currently selected, update the available days display
+                if (employeeComboBox.getValue() != null && 
+                    employeeComboBox.getValue().getId().equals(event.getEmployee().getId())) {
+                    updateAvailableDaysDisplay(event.getEmployee());
+                }
+            });
+        });
+        
+        // Listen for employee deleted events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_DELETED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+                // If the deleted employee was selected, clear the selection
+                if (employeeComboBox.getValue() != null && 
+                    employeeComboBox.getValue().getId().equals(event.getEmployee().getId())) {
+                    employeeComboBox.getSelectionModel().clearSelection();
+                    availableDaysLabel.setText("-");
+                }
+            });
+        });
     }
 }
