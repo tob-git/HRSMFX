@@ -17,14 +17,6 @@ class UserServiceTest {
     private static UserService operation;
     private User user;
 
-//    @AfterAll
-//    static void Create() {
-//        operation.createUser("firo", "firo123", "Farid Fahmi", User.UserRole.HR_ADMIN);
-//        operation.createUser("fadij", "fadij123", "Fady John", User.UserRole.HR_ADMIN);
-//        operation.createUser("miky2004", "miky123", "Michael Nagi", User.UserRole.HR_ADMIN);
-//        operation.createUser("TopG", "TopG123", "Mohamed Khaled", User.UserRole.HR_ADMIN);
-//    }
-
     @BeforeEach
     void setUp() {
         // Get the singleton instance of UserService
