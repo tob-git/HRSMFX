@@ -20,6 +20,7 @@ import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ResourceBundle;
+import javafx.beans.property.SimpleStringProperty;
 
 public class PerformanceController implements Initializable {
     @FXML
@@ -77,7 +78,15 @@ public class PerformanceController implements Initializable {
     public void initialize(URL url, ResourceBundle rb) {
         // Initialize table columns
         idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
-        employeeIdColumn.setCellValueFactory(new PropertyValueFactory<>("employeeId"));
+        employeeIdColumn.setCellValueFactory(cellData -> {
+            PerformanceEvaluation evaluation = cellData.getValue();
+            // Find the employee by ID
+            Employee employee = employeeService.getEmployeeById(evaluation.getEmployeeId());
+            // Return the full name if found, otherwise return the ID
+            return new SimpleStringProperty(employee != null ? 
+                employee.getFirstName() + " " + employee.getLastName() : 
+                evaluation.getEmployeeId());
+        });
         evaluationDateColumn.setCellValueFactory(new PropertyValueFactory<>("evaluationDate"));
         ratingColumn.setCellValueFactory(new PropertyValueFactory<>("performanceRating"));
         strengthsColumn.setCellValueFactory(new PropertyValueFactory<>("strengths"));

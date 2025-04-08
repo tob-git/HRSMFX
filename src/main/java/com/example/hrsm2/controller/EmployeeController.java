@@ -2,7 +2,6 @@ package com.example.hrsm2.controller;
 
 import com.example.hrsm2.model.Employee;
 import com.example.hrsm2.service.EmployeeService;
-import com.example.hrsm2.controller.*;
 import com.example.hrsm2.event.EmployeeEvent;
 import com.example.hrsm2.event.EventManager;
 import javafx.application.Platform;
