@@ -1,5 +1,6 @@
 package com.example.hrsm2.service;
 
+import com.example.hrsm2.model.*;
 import com.example.hrsm2.service.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,10 +12,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class UserServiceTest {
 
     private UserService operation;
+    private User admin;
 
     @BeforeEach
     void setUp() {
         operation = UserService.getInstance();
+        admin = new User("miky2004", "miky123", "Michael Nagi", User.UserRole.HR_ADMIN);
     }
 
     @AfterEach
@@ -22,45 +25,46 @@ class UserServiceTest {
     }
 
     @Test
-    void getInstance() {
+    void testGetInstance() {
     }
 
     @Test
-    void authenticate() {
+    void testAuthenticate() {
+        assertSame(admin, operation.authenticate("miky2004", "miky123"));
     }
 
     @Test
-    void getCurrentUser() {
+    void testGetCurrentUser() {
     }
 
     @Test
-    void logout() {
+    void testLogout() {
     }
 
     @Test
-    void createUser() {
+    void testCreateUser() {
     }
 
     @Test
-    void updateUser() {
+    void testUpdateUser() {
     }
 
     @Test
-    void deleteUser() {
+    void testDeleteUser() {
     }
 
     @Test
-    void getAllUsers() {
+    void testGetAllUsers() {
     }
 
     @Test
-    void getUserByUsername() {
+    void testGetUserByUsername() {
     }
 
     @Test
     void testIsUsernameTaken() {
-        assertTrue(operation.isUsernameTaken("fadij"));        // fadij exists already
-        assertFalse(operation.isUsernameTaken("fadij1234"));   // fadij1234 doesn't exists
-        assertFalse(operation.isUsernameTaken("miky2004"));    // miky2004 doesn't exist
+        assertTrue(operation.isUsernameTaken("super"));         // super exists already
+        assertFalse(operation.isUsernameTaken("fadij1234"));    // fadij1234 doesn't exists
+        assertTrue(operation.isUsernameTaken("miky2004"));      // miky2004 doesn't exist
     }
 }
