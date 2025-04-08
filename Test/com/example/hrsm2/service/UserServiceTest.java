@@ -63,17 +63,16 @@ class UserServiceTest {
 
     @ParameterizedTest
     @Order(1)
+    @DisplayName("Repeated Test Example with Parameters")
     @CsvSource({
             "fadij, fadij123, Fady John",
             "miky2004, miky123, Michael Nagi"
     })
     void testLogout(String username, String password, String Fname) {
         operation.createUser(username, password, Fname,User.UserRole.HR_ADMIN);
-
-        //operation.createUser(testUser.getUsername(), testUser.getPassword(), testUser.getFullName(), testUser.getRole());
         operation.authenticate(username, password);
         operation.logout();
-        // assertNull(operation.getCurrentUser());
+        assertNull(operation.getCurrentUser());
     }
 
     @Test
