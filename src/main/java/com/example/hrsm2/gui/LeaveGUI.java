@@ -3,8 +3,6 @@ package com.example.hrsm2.gui;
 import com.example.hrsm2.controller.LeaveController;
 import com.example.hrsm2.model.Employee;
 import com.example.hrsm2.model.LeaveRequest;
-import com.example.hrsm2.service.EmployeeService;
-import com.example.hrsm2.service.LeaveRequestService;
 import com.example.hrsm2.event.EmployeeEvent;
 import com.example.hrsm2.event.EventManager;
 import javafx.collections.FXCollections;
@@ -46,10 +44,6 @@ public class LeaveGUI implements Initializable {
     @FXML private Button rejectButton;
     @FXML private Button clearButton;
 
-    // Use Singleton instances to ensure a single point of access to services.
-    private final EmployeeService employeeService = EmployeeService.getInstance();
-    private final LeaveRequestService leaveRequestService = LeaveRequestService.getInstance();
-    
     // Controller for business logic
     private final LeaveController leaveController = new LeaveController();
 
@@ -58,16 +52,13 @@ public class LeaveGUI implements Initializable {
 
     private LeaveRequest selectedLeaveRequest;
 
-    // Represents the default total leave days allowance per employee. Actual available days are calculated by the service.
-    private static final int DEFAULT_AVAILABLE_LEAVE_DAYS = 20;
-
     @Override
     public void initialize(URL url, ResourceBundle rb) {
         // Configure table columns to bind to LeaveRequest properties.
         idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
         employeeIdColumn.setCellValueFactory(cellData -> {
             LeaveRequest request = cellData.getValue();
-            Employee employee = employeeService.getEmployeeById(request.getEmployeeId());
+            Employee employee = leaveController.getEmployeeById(request.getEmployeeId());
             // Display employee's full name; use binding for potential reactivity.
             return employee != null ?
                     javafx.beans.binding.Bindings.createStringBinding(employee::getFullName) :
@@ -207,7 +198,7 @@ public class LeaveGUI implements Initializable {
     // Loads employee data from the service into the ComboBox.
     private void loadEmployees() {
         try {
-            List<Employee> employeesFromDb = employeeService.getAllEmployees();
+            List<Employee> employeesFromDb = leaveController.getAllEmployees();
             employeeList.setAll(employeesFromDb);
             employeeComboBox.setItems(employeeList);
 
@@ -228,9 +219,8 @@ public class LeaveGUI implements Initializable {
             return;
         }
         try {
-            int usedDays = leaveRequestService.getApprovedLeaveDaysForEmployee(employee.getId());
-            int availableDays = DEFAULT_AVAILABLE_LEAVE_DAYS - usedDays;
-            availableDaysLabel.setText(String.valueOf(Math.max(0, availableDays))); // Ensure non-negative display.
+            int availableDays = leaveController.getAvailableLeaveDays(employee.getId());
+            availableDaysLabel.setText(String.valueOf(availableDays)); // Already ensures non-negative in controller
         } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Error", "Failed to calculate available days: " + e.getMessage());
             availableDaysLabel.setText("Error");
@@ -275,21 +265,11 @@ public class LeaveGUI implements Initializable {
         LocalDate startDate = startDatePicker.getValue();
         LocalDate endDate = endDatePicker.getValue();
         String reason = reasonArea.getText().trim();
+        String employeeId = employeeComboBox.getValue().getId();
 
         try {
-            // Obtain the ID from the selected employee to use in the leave request.
-            String employeeId = employeeComboBox.getValue().getId();
-
-            // Create leave request with essential information.
-            LeaveRequest request = new LeaveRequest();
-            request.setEmployeeId(employeeId);
-            request.setStartDate(startDate);
-            request.setEndDate(endDate);
-            request.setReason(reason);
-            // Status set to PENDING by default in the model.
-
-            // Submit request to service
-            boolean success = leaveRequestService.submitLeaveRequest(request);
+            // Submit request through the controller
+            boolean success = leaveController.submitLeaveRequest(employeeId, startDate, endDate, reason);
 
             if (success) {
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Leave request submitted successfully.");
@@ -319,11 +299,9 @@ public class LeaveGUI implements Initializable {
         // Optional: Check if there are enough available days for the employee
         try {
             String employeeId = selectedLeaveRequest.getEmployeeId();
-            int usedDays = leaveRequestService.getApprovedLeaveDaysForEmployee(employeeId);
+            int availableDays = leaveController.getAvailableLeaveDays(employeeId);
             int requestDays = (int) selectedLeaveRequest.getDurationInDays();
 
-            // This check intentionally doesn't include the current request in usedDays.
-            int availableDays = DEFAULT_AVAILABLE_LEAVE_DAYS - usedDays;
             if (requestDays > availableDays) {
                 Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
                 confirmAlert.setTitle("Insufficient Leave Days");
@@ -336,11 +314,13 @@ public class LeaveGUI implements Initializable {
                 }
             }
 
-            // Update manager comments from the UI
-            selectedLeaveRequest.setManagerComments(commentsArea.getText().trim());
+            // Add null check for commentsArea
+            String comments = commentsArea != null && commentsArea.getText() != null 
+                    ? commentsArea.getText().trim() 
+                    : "";
 
-            // Approve the request
-            boolean success = leaveRequestService.approveLeaveRequest(selectedLeaveRequest.getId(),selectedLeaveRequest.getManagerComments());
+            // Approve the request through the controller
+            boolean success = leaveController.approveLeaveRequest(selectedLeaveRequest.getId(), comments);
 
             if (success) {
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Leave request approved successfully.");
@@ -369,10 +349,12 @@ public class LeaveGUI implements Initializable {
         }
 
         try {
-            // Update manager comments from the UI
-            selectedLeaveRequest.setManagerComments(commentsArea.getText().trim());
+            // Add null check for commentsArea
+            String comments = commentsArea != null && commentsArea.getText() != null 
+                    ? commentsArea.getText().trim() 
+                    : "";
 
-            if (selectedLeaveRequest.getManagerComments().isEmpty()) {
+            if (comments.isEmpty()) {
                 // Manager should provide a reason for rejection
                 Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
                 confirmAlert.setTitle("Missing Reason");
@@ -384,7 +366,8 @@ public class LeaveGUI implements Initializable {
                 }
             }
 
-            boolean success = leaveRequestService.rejectLeaveRequest(selectedLeaveRequest.getId(), selectedLeaveRequest.getManagerComments());
+            // Reject the request through the controller
+            boolean success = leaveController.rejectLeaveRequest(selectedLeaveRequest.getId(), comments);
 
             if (success) {
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Leave request rejected successfully.");
@@ -408,7 +391,7 @@ public class LeaveGUI implements Initializable {
 
     public void refreshLeaveRequestList() {
         try {
-            List<LeaveRequest> leaveRequests = leaveRequestService.getAllLeaveRequests();
+            List<LeaveRequest> leaveRequests = leaveController.getAllLeaveRequests();
             leaveRequestList.setAll(leaveRequests);
             leaveRequestTable.setItems(leaveRequestList);
         } catch (Exception e) {
@@ -419,7 +402,7 @@ public class LeaveGUI implements Initializable {
 
     private void showLeaveRequestDetails(LeaveRequest leaveRequest) {
         // Populate the form with details from the selected request
-        Employee employee = employeeService.getEmployeeById(leaveRequest.getEmployeeId());
+        Employee employee = leaveController.getEmployeeById(leaveRequest.getEmployeeId());
         if (employee != null) {
             employeeComboBox.setValue(employee);
             updateAvailableDaysDisplay(employee);
@@ -507,8 +490,7 @@ public class LeaveGUI implements Initializable {
                 // Calculate requested days
                 long requestedDays = ChronoUnit.DAYS.between(startDatePicker.getValue(), endDatePicker.getValue()) + 1;
                 String employeeId = employeeComboBox.getValue().getId();
-                int usedDays = leaveRequestService.getApprovedLeaveDaysForEmployee(employeeId);
-                int availableDays = DEFAULT_AVAILABLE_LEAVE_DAYS - usedDays;
+                int availableDays = leaveController.getAvailableLeaveDays(employeeId);
 
                 if (requestedDays > availableDays) {
                     // Warning only, not a hard error - might be allowed by management
@@ -557,7 +539,7 @@ public class LeaveGUI implements Initializable {
         // Listen for employee added events
         eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_ADDED, event -> {
             Platform.runLater(() -> {
-                loadEmployees();
+                loadEmployees(); // Loads from controller
                 showAlert(Alert.AlertType.INFORMATION, "New Employee", 
                     "New employee added: " + event.getEmployee().getFullName());
             });
@@ -566,7 +548,7 @@ public class LeaveGUI implements Initializable {
         // Listen for employee updated events
         eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_UPDATED, event -> {
             Platform.runLater(() -> {
-                loadEmployees();
+                loadEmployees(); // Loads from controller
                 if (employeeComboBox.getValue() != null && 
                     employeeComboBox.getValue().getId().equals(event.getEmployee().getId())) {
                     // Update the selection to reflect changes
@@ -578,7 +560,7 @@ public class LeaveGUI implements Initializable {
         // Listen for employee deleted events
         eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_DELETED, event -> {
             Platform.runLater(() -> {
-                loadEmployees();
+                loadEmployees(); // Loads from controller
                 // If the deleted employee was selected, clear the selection
                 if (employeeComboBox.getValue() != null && 
                     employeeComboBox.getValue().getId().equals(event.getEmployee().getId())) {

@@ -2,7 +2,6 @@ package com.example.hrsm2.gui;
 
 import com.example.hrsm2.controller.UserController;
 import com.example.hrsm2.model.User;
-import com.example.hrsm2.service.UserService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -31,10 +30,10 @@ public class UserGUI implements Initializable {
     private TextField usernameField;
 
     @FXML
-    private PasswordField passwordField; // Input for plain text password
+    private PasswordField passwordField;
 
     @FXML
-    private PasswordField confirmPasswordField; // Input for plain text password confirmation
+    private PasswordField confirmPasswordField;
 
     @FXML
     private TextField fullNameField;
@@ -51,87 +50,68 @@ public class UserGUI implements Initializable {
     // Controller for business logic
     private final UserController userController = new UserController();
     
-    // UserService now interacts with the database
-    private final UserService userService = UserService.getInstance();
     private ObservableList<User> userList = FXCollections.observableArrayList();
-    private User selectedUser; // This will hold the User object fetched from the DB via UserService
+    private User selectedUser;
 
     @Override
     public void initialize(URL url, ResourceBundle rb) {
-        // Initialize table columns (no changes needed)
+        // Initialize table columns
         usernameColumn.setCellValueFactory(new PropertyValueFactory<>("username"));
         fullNameColumn.setCellValueFactory(new PropertyValueFactory<>("fullName"));
         roleColumn.setCellValueFactory(new PropertyValueFactory<>("role"));
 
-        // Setup table selection listener (no changes needed)
+        // Setup table selection listener
         userTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
             if (newSelection != null) {
-                selectedUser = newSelection; // selectedUser now holds a DB-backed user object
+                selectedUser = newSelection;
                 deleteButton.setDisable(false);
-                // Optionally populate fields for editing (if update functionality is added)
-                // usernameField.setText(selectedUser.getUsername()); - Usually don't edit username
-                // fullNameField.setText(selectedUser.getFullName());
-                // passwordField.clear(); // Don't show hash
-                // confirmPasswordField.clear();
             } else {
                 selectedUser = null;
                 deleteButton.setDisable(true);
-                // Optionally clear fields if deselected
-                clearForm(); // Clear form when selection is cleared
+                clearForm();
             }
         });
 
-        // Initialize button states (no changes needed)
+        // Initialize button states
         deleteButton.setDisable(true);
 
-        // Load initial user data from the database via UserService
+        // Load initial user data
         refreshUserList();
     }
 
     // Refreshes the list from the database
     public void refreshUserList() {
         userList.clear();
-
-        // Get all users from the service (which now gets them from the DB)
-        List<User> allUsersFromDb = userService.getAllUsers();
-
-        // Filter to only show HR_ADMIN users for the super admin (or adjust as needed)
-        allUsersFromDb.forEach(user -> {
-            if (user.getRole() == User.UserRole.HR_ADMIN) {
-                userList.add(user);
-            }
-            // If you want the Super Admin to see themselves:
-            // if (user.getRole() == User.UserRole.HR_ADMIN || user.isSuperAdmin()) {
-            //    userList.add(user);
-            // }
-        });
-
+        userList.addAll(userController.getAllHrAdminUsers());
         userTable.setItems(userList);
-        // Ensure selection is cleared after refresh if needed
-        // userTable.getSelectionModel().clearSelection();
     }
 
     @FXML
     private void handleAddUser() {
-        // Validate inputs (no changes needed)
-        if (!validateInputs()) {
+        String username = usernameField.getText().trim();
+        String plainPassword = passwordField.getText();
+        String confirmPassword = confirmPasswordField.getText();
+        String fullName = fullNameField.getText().trim();
+
+        // Validate inputs using controller
+        String validationError = userController.validateUserInputs(
+            username, plainPassword, confirmPassword, fullName, selectedUser);
+        
+        if (!validationError.isEmpty()) {
+            showAlert(Alert.AlertType.ERROR, "Validation Error", validationError);
             return;
         }
 
-        String username = usernameField.getText().trim();
-        String plainPassword = passwordField.getText(); // Get plain text password
-        String fullName = fullNameField.getText().trim();
-
-        // Create new HR user - UserService now handles hashing and DB insertion
-        boolean success = userService.createUser(username, plainPassword, fullName, User.UserRole.HR_ADMIN);
+        // Create new HR user using controller
+        boolean success = userController.createHrAdminUser(username, plainPassword, fullName);
 
         if (success) {
             showAlert(Alert.AlertType.INFORMATION, "Success", "HR user created successfully.");
             clearForm();
-            refreshUserList(); // Reload list from DB
+            refreshUserList();
         } else {
             // Check if the reason was username taken
-            if (userService.isUsernameTaken(username)) {
+            if (userController.isUsernameTaken(username)) {
                 showAlert(Alert.AlertType.ERROR, "Error", "Username '" + username + "' already exists. Please choose a different username.");
             } else {
                 showAlert(Alert.AlertType.ERROR, "Error", "Failed to create HR user. See console/logs for details.");
@@ -142,15 +122,14 @@ public class UserGUI implements Initializable {
     @FXML
     private void handleDeleteUser() {
         if (selectedUser == null) {
-            return; // Should not happen if button is enabled correctly
+            return;
         }
 
-        // Prevent deleting the super admin through the UI (already handled in service, but good UI feedback)
+        // Prevent deleting the super admin through the UI
         if ("super".equalsIgnoreCase(selectedUser.getUsername())) {
             showAlert(Alert.AlertType.WARNING, "Delete Denied", "The default super administrator account cannot be deleted.");
             return;
         }
-
 
         Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
         confirmAlert.setTitle("Confirm Delete");
@@ -159,13 +138,12 @@ public class UserGUI implements Initializable {
 
         confirmAlert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
-                // Call UserService to delete from DB
-                boolean success = userService.deleteUser(selectedUser.getUsername());
+                // Call controller to delete user
+                boolean success = userController.deleteUser(selectedUser.getUsername());
 
                 if (success) {
                     showAlert(Alert.AlertType.INFORMATION, "Success", "User deleted successfully.");
-                    refreshUserList(); // Reload list from DB
-                    // clearForm(); // Already cleared by selection listener or can be called explicitly
+                    refreshUserList();
                 } else {
                     showAlert(Alert.AlertType.ERROR, "Error", "Failed to delete user. The user might be the current user or an error occurred.");
                 }
@@ -183,53 +161,9 @@ public class UserGUI implements Initializable {
         passwordField.clear();
         confirmPasswordField.clear();
         fullNameField.clear();
-        userTable.getSelectionModel().clearSelection(); // This will trigger the listener, setting selectedUser to null
-        // selectedUser = null; // Handled by listener
-        // deleteButton.setDisable(true); // Handled by listener
+        userTable.getSelectionModel().clearSelection();
     }
 
-    // Validation logic remains the same
-    private boolean validateInputs() {
-        StringBuilder errorMessage = new StringBuilder();
-
-        String username = usernameField.getText().trim();
-        String password = passwordField.getText();
-        String confirmPassword = confirmPasswordField.getText();
-        String fullName = fullNameField.getText().trim();
-
-        if (username.isEmpty()) {
-            errorMessage.append("Username is required.\n");
-        } else if (username.equalsIgnoreCase("super") && selectedUser == null) {
-            // Prevent creating another user named "super" (case-insensitive check)
-            // Allow editing if 'super' is selectedUser (though updates might be restricted elsewhere)
-            errorMessage.append("Username 'super' is reserved.\n");
-        }
-
-
-        if (password.isEmpty()) {
-            errorMessage.append("Password is required.\n");
-        } else if (password.length() < 6) { // Example: Add password complexity rule
-            errorMessage.append("Password must be at least 6 characters long.\n");
-        }
-
-
-        if (!password.equals(confirmPassword)) {
-            errorMessage.append("Passwords do not match.\n");
-        }
-
-        if (fullName.isEmpty()) {
-            errorMessage.append("Full name is required.\n");
-        }
-
-        if (errorMessage.length() > 0) {
-            showAlert(Alert.AlertType.ERROR, "Validation Error", errorMessage.toString());
-            return false;
-        }
-
-        return true;
-    }
-
-    // Alert utility remains the same
     private void showAlert(Alert.AlertType alertType, String title, String content) {
         Alert alert = new Alert(alertType);
         alert.setTitle(title);

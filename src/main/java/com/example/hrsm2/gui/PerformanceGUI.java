@@ -70,22 +70,22 @@ public class PerformanceGUI implements Initializable {
     // Controller for business logic
     private final PerformanceController performanceController = new PerformanceController();
     
-    private final EmployeeService employeeService = EmployeeService.getInstance();
-    private final PerformanceEvaluationService evaluationService = PerformanceEvaluationService.getInstance();
     private ObservableList<PerformanceEvaluation> evaluationList = FXCollections.observableArrayList();
     private ObservableList<Employee> employeeList = FXCollections.observableArrayList();
     private PerformanceEvaluation selectedEvaluation;
-    private final UserService userService = UserService.getInstance();
-    User currentUser = userService.getCurrentUser();
+    private User currentUser;
     
     @Override
     public void initialize(URL url, ResourceBundle rb) {
+        // Get current user from controller
+        currentUser = performanceController.getCurrentUser();
+        
         // Initialize table columns
         idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
         employeeIdColumn.setCellValueFactory(cellData -> {
             PerformanceEvaluation evaluation = cellData.getValue();
             // Find the employee by ID
-            Employee employee = employeeService.getEmployeeById(evaluation.getEmployeeId());
+            Employee employee = performanceController.getEmployeeById(evaluation.getEmployeeId());
             // Return the full name if found, otherwise return the ID
             return new SimpleStringProperty(employee != null ? 
                 employee.getFirstName() + " " + employee.getLastName() : 
@@ -189,7 +189,7 @@ public class PerformanceGUI implements Initializable {
     
     private void loadEmployees() {
         employeeList.clear();
-        employeeList.addAll(employeeService.getAllEmployees());
+        employeeList.addAll(performanceController.getAllEmployees());
         employeeComboBox.setItems(employeeList);
     }
     
@@ -224,24 +224,15 @@ public class PerformanceGUI implements Initializable {
             String areasForImprovement = improvementArea.getText().trim();
             String comments = commentsArea.getText().trim();
             
-            PerformanceEvaluation evaluation = new PerformanceEvaluation();
-            evaluation.setEmployeeId(selectedEmployee.getId());
-            evaluation.setEvaluationDate(evaluationDate);
-            evaluation.setPerformanceRating(rating);
-            evaluation.setStrengths(strengths);
-            evaluation.setAreasForImprovement(areasForImprovement);
-            evaluation.setComments(comments);
-            evaluation.setReviewedBy(currentUser.getUsername());
-            
-            // Add evaluation
-            boolean success = false;
-            try {
-                evaluationService.addEvaluation(evaluation);
-                success = true;
-            } catch (Exception e) {
-                success = false;
-                e.printStackTrace();
-            }
+            // Use controller to add evaluation
+            boolean success = performanceController.addEvaluation(
+                selectedEmployee.getId(),
+                evaluationDate,
+                rating,
+                strengths,
+                areasForImprovement,
+                comments
+            );
             
             if (success) {
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Performance evaluation added successfully.");
@@ -274,23 +265,22 @@ public class PerformanceGUI implements Initializable {
                 return;
             }
             
-            selectedEvaluation.setEmployeeId(selectedEmployee.getId());
-            selectedEvaluation.setEvaluationDate(evaluationDatePicker.getValue());
-            selectedEvaluation.setPerformanceRating((int) ratingSlider.getValue());
-            selectedEvaluation.setStrengths(strengthsArea.getText().trim());
-            selectedEvaluation.setAreasForImprovement(improvementArea.getText().trim());
-            selectedEvaluation.setComments(commentsArea.getText().trim());
-            selectedEvaluation.setReviewedBy(currentUser.getUsername()); // Update with current reviewer
+            LocalDate evaluationDate = evaluationDatePicker.getValue();
+            int rating = (int) ratingSlider.getValue();
+            String strengths = strengthsArea.getText().trim();
+            String areasForImprovement = improvementArea.getText().trim();
+            String comments = commentsArea.getText().trim();
             
-            // Update evaluation
-            boolean success = false;
-            try {
-                evaluationService.updateEvaluation(selectedEvaluation);
-                success = true;
-            } catch (Exception e) {
-                success = false;
-                e.printStackTrace();
-            }
+            // Use controller to update evaluation
+            boolean success = performanceController.updateEvaluation(
+                selectedEvaluation.getId(),
+                selectedEmployee.getId(),
+                evaluationDate,
+                rating,
+                strengths,
+                areasForImprovement,
+                comments
+            );
             
             if (success) {
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Performance evaluation updated successfully.");
@@ -320,15 +310,8 @@ public class PerformanceGUI implements Initializable {
         
         if (confirmAlert.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
             try {
-                // Delete evaluation
-                boolean success = false;
-                try {
-                    evaluationService.deleteEvaluation(selectedEvaluation.getId());
-                    success = true;
-                } catch (Exception e) {
-                    success = false;
-                    e.printStackTrace();
-                }
+                // Use controller to delete evaluation
+                boolean success = performanceController.deleteEvaluation(selectedEvaluation.getId());
                 
                 if (success) {
                     showAlert(Alert.AlertType.INFORMATION, "Success", "Performance evaluation deleted successfully.");
@@ -353,13 +336,13 @@ public class PerformanceGUI implements Initializable {
     
     public void refreshEvaluationList() {
         evaluationList.clear();
-        evaluationList.addAll(evaluationService.getAllEvaluations());
+        evaluationList.addAll(performanceController.getAllEvaluations());
         evaluationTable.setItems(evaluationList);
     }
     
     private void showEvaluationDetails(PerformanceEvaluation evaluation) {
         // Find employee by ID
-        Employee employee = employeeService.getEmployeeById(evaluation.getEmployeeId());
+        Employee employee = performanceController.getEmployeeById(evaluation.getEmployeeId());
         employeeComboBox.setValue(employee);
         
         evaluationDatePicker.setValue(evaluation.getEvaluationDate());

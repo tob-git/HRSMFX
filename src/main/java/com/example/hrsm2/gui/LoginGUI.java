@@ -3,7 +3,6 @@ package com.example.hrsm2.gui;
 import com.example.hrsm2.HRMSApplication;
 import com.example.hrsm2.controller.LoginController;
 import com.example.hrsm2.model.User;
-import com.example.hrsm2.service.UserService;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -16,6 +15,10 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 
+/**
+ * GUI class for login screen.
+ * Handles UI elements and user interactions for login.
+ */
 public class LoginGUI {
     @FXML
     private TextField usernameField;
@@ -29,14 +32,13 @@ public class LoginGUI {
     // Controller for business logic
     private final LoginController loginController = new LoginController();
     
-    private final UserService userService = UserService.getInstance();
-    
     @FXML
     private void handleLogin(ActionEvent event) {
         String username = usernameField.getText();
         String password = passwordField.getText();
         
-        User user = userService.authenticate(username, password);
+        // Use controller for authentication
+        User user = loginController.authenticate(username, password);
         
         if (user != null) {
             try {
@@ -62,6 +64,12 @@ public class LoginGUI {
         }
     }
     
+    /**
+     * Display an alert dialog
+     * @param alertType The type of alert
+     * @param title The alert title
+     * @param content The alert content
+     */
     private void showAlert(Alert.AlertType alertType, String title, String content) {
         Alert alert = new Alert(alertType);
         alert.setTitle(title);
