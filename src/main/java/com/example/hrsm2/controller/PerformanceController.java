@@ -6,6 +6,8 @@ import com.example.hrsm2.model.User;
 import com.example.hrsm2.service.EmployeeService;
 import com.example.hrsm2.service.PerformanceEvaluationService;
 import com.example.hrsm2.service.UserService;
+import com.example.hrsm2.event.EmployeeEvent;
+import com.example.hrsm2.event.EventManager;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -13,10 +15,12 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.util.StringConverter;
+import javafx.application.Platform;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ResourceBundle;
+import javafx.beans.property.SimpleStringProperty;
 
 public class PerformanceController implements Initializable {
     @FXML
@@ -74,7 +78,15 @@ public class PerformanceController implements Initializable {
     public void initialize(URL url, ResourceBundle rb) {
         // Initialize table columns
         idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
-        employeeIdColumn.setCellValueFactory(new PropertyValueFactory<>("employeeId"));
+        employeeIdColumn.setCellValueFactory(cellData -> {
+            PerformanceEvaluation evaluation = cellData.getValue();
+            // Find the employee by ID
+            Employee employee = employeeService.getEmployeeById(evaluation.getEmployeeId());
+            // Return the full name if found, otherwise return the ID
+            return new SimpleStringProperty(employee != null ? 
+                employee.getFirstName() + " " + employee.getLastName() : 
+                evaluation.getEmployeeId());
+        });
         evaluationDateColumn.setCellValueFactory(new PropertyValueFactory<>("evaluationDate"));
         ratingColumn.setCellValueFactory(new PropertyValueFactory<>("performanceRating"));
         strengthsColumn.setCellValueFactory(new PropertyValueFactory<>("strengths"));
@@ -137,11 +149,14 @@ public class PerformanceController implements Initializable {
         updateButton.setDisable(true);
         deleteButton.setDisable(true);
         
-        // Load employee data
+        // Load employees from the service
         loadEmployees();
         
-        // Load initial evaluation data
+        // Load performance evaluations
         refreshEvaluationList();
+        
+        // Register for employee events
+        registerForEmployeeEvents();
     }
     
     private void setupDatePicker(DatePicker datePicker) {
@@ -308,7 +323,7 @@ public class PerformanceController implements Initializable {
         deleteButton.setDisable(true);
     }
     
-    private void refreshEvaluationList() {
+    public void refreshEvaluationList() {
         evaluationList.clear();
         evaluationList.addAll(evaluationService.getAllEvaluations());
         evaluationTable.setItems(evaluationList);
@@ -377,5 +392,46 @@ public class PerformanceController implements Initializable {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+    
+    /**
+     * Register this controller to listen for employee events.
+     * This allows the controller to refresh its employee list when employees are added, updated, or deleted.
+     */
+    private void registerForEmployeeEvents() {
+        EventManager eventManager = EventManager.getInstance();
+        
+        // Listen for employee added events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_ADDED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+
+            });
+        });
+        
+        // Listen for employee updated events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_UPDATED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+                // If the updated employee is currently selected, keep the selection
+                if (employeeComboBox.getValue() != null && 
+                    employeeComboBox.getValue().getId().equals(event.getEmployee().getId())) {
+                    // The employee object in the combo box will be updated by loadEmployees()
+                    // No need to do anything else
+                }
+            });
+        });
+        
+        // Listen for employee deleted events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_DELETED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+                // If the deleted employee was selected, clear the selection
+                if (employeeComboBox.getValue() != null && 
+                    employeeComboBox.getValue().getId().equals(event.getEmployee().getId())) {
+                    employeeComboBox.getSelectionModel().clearSelection();
+                }
+            });
+        });
     }
 } 
