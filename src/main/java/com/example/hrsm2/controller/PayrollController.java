@@ -102,7 +102,7 @@ public class PayrollController implements Initializable {
         employeeComboBox.setConverter(new StringConverter<Employee>() {
             @Override
             public String toString(Employee employee) {
-                return employee == null ? "" : employee.getFullName();
+                return employee == null ? "Select Employee..." : employee.getFullName();
             }
             
             @Override

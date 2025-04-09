@@ -21,7 +21,7 @@ public class EmployeeController implements Initializable {
 
     // --- FXML Table and Columns ---
     @FXML private TableView<Employee> employeeTable;
-    @FXML private TableColumn<Employee, String> idColumn; // Display String UUID
+    @FXML private TableColumn<Employee, String> idColumn;
     @FXML private TableColumn<Employee, String> firstNameColumn;
     @FXML private TableColumn<Employee, String> lastNameColumn;
     @FXML private TableColumn<Employee, String> emailColumn;
@@ -329,9 +329,6 @@ public class EmployeeController implements Initializable {
             // Update the UI on the FX Application Thread
             Platform.runLater(() -> {
                 employeeList.setAll(employeesFromDb);
-                System.out.println("Employee list refreshed. Displaying " + employeeList.size() + " employees."); // Debug log
-                // Do NOT clear selection here, as refresh might be called after update
-                // table selection listener handles clearing form if selection is lost.
             });
         } catch (Exception e) {
             // Show error on the FX Application Thread

@@ -137,7 +137,7 @@ public class LeaveController implements Initializable {
                         return LocalDate.parse(string, dateFormatter);
                     } catch (java.time.format.DateTimeParseException e) {
                         System.err.println("Invalid date format entered: " + string);
-                        return null; // Invalid format returns null.
+                        return null;
                     }
                 } else {
                     return null;
@@ -166,7 +166,7 @@ public class LeaveController implements Initializable {
                     if (startDate != null) {
                         setDisable(empty || date.isBefore(startDate));
                     } else {
-                        setDisable(empty || date.isBefore(LocalDate.now())); // Default if start date isn't picked.
+                        setDisable(empty || date.isBefore(LocalDate.now()));
                     }
                 }
             });
@@ -179,7 +179,7 @@ public class LeaveController implements Initializable {
             @Override
             public String toString(Employee employee) {
                 // Shows full name and a partial ID for clarity.
-                return employee == null ? "Select Employee..." : employee.getFullName() + " (" + employee.getId().substring(0, Math.min(8, employee.getId().length())) + "...)";
+                return employee == null ? "Select Employee..." : employee.getFullName();
             }
 
             @Override

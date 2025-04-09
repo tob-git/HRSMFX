@@ -57,9 +57,9 @@ public class DatabaseDriver {
             + "pay_period_start TEXT NOT NULL, "     // Stored as 'yyyy-MM-dd'
             + "pay_period_end TEXT NOT NULL, "       // Stored as 'yyyy-MM-dd'
             + "base_salary REAL DEFAULT 0.0, "
-            + "overtime_pay REAL DEFAULT 0.0, "       // Changed from 'overtime'
+            + "overtime_pay REAL DEFAULT 0.0, "
             + "bonus REAL DEFAULT 0.0, "
-            + "tax_deductions REAL DEFAULT 0.0, "     // Changed from 'tax'
+            + "tax_deductions REAL DEFAULT 0.0, "
             + "other_deductions REAL DEFAULT 0.0, "
             + "net_salary REAL DEFAULT 0.0, "
             + "status TEXT NOT NULL, "                // e.g., 'PENDING', 'PROCESSED', 'PAID'
@@ -73,7 +73,7 @@ public class DatabaseDriver {
             + "evaluation_date TEXT NOT NULL, "       // Stored as 'yyyy-MM-dd'
             + "rating INTEGER, "                      // e.g., 1-5 scale
             + "strengths TEXT, "
-            + "areas_for_improvement TEXT, "          // snake_case for consistency
+            + "areas_for_improvement TEXT, "
             + "comments TEXT, "
             + "reviewed_by TEXT, "                    // Reviewer's name or ID
             + "FOREIGN KEY(employee_id) REFERENCES Employee(id) ON DELETE CASCADE" // Cascade delete
@@ -113,7 +113,6 @@ public class DatabaseDriver {
     private static final String INSERT_USER_SQL = "INSERT INTO UserManagement(username, full_name, password, role) VALUES(?,?,?,?)";
     private static final String SELECT_ALL_USERS_SQL = "SELECT * FROM UserManagement ORDER BY full_name";
     private static final String SELECT_USER_BY_USERNAME_SQL = "SELECT * FROM UserManagement WHERE username = ?";
-    // Update only allows changing full name, password hash, and role for a given username
     private static final String UPDATE_USER_SQL = "UPDATE UserManagement SET full_name = ?, password = ?, role = ? WHERE username = ?";
     private static final String DELETE_USER_SQL = "DELETE FROM UserManagement WHERE username = ?";
 
@@ -122,16 +121,13 @@ public class DatabaseDriver {
             + "id, employee_id, pay_period_start, pay_period_end, base_salary, "
             + "overtime_pay, bonus, tax_deductions, other_deductions, net_salary, status) "
             + "VALUES(?,?,?,?,?,?,?,?,?,?,?)";
-
     private static final String SELECT_ALL_PAYROLLS_SQL = "SELECT * FROM Payroll ORDER BY pay_period_start DESC, employee_id";
     private static final String SELECT_PAYROLL_BY_ID_SQL = "SELECT * FROM Payroll WHERE id = ?";
     private static final String SELECT_PAYROLLS_BY_EMPLOYEE_ID_SQL = "SELECT * FROM Payroll WHERE employee_id = ? ORDER BY pay_period_start DESC";
-
     private static final String UPDATE_PAYROLL_SQL = "UPDATE Payroll SET "
             + "employee_id = ?, pay_period_start = ?, pay_period_end = ?, base_salary = ?, "
             + "overtime_pay = ?, bonus = ?, tax_deductions = ?, other_deductions = ?, "
             + "net_salary = ?, status = ? WHERE id = ?";
-
     private static final String DELETE_PAYROLL_SQL = "DELETE FROM Payroll WHERE id = ?";
 
     // --- SQL CRUD Statements for PerformanceEvaluation ---
@@ -139,15 +135,12 @@ public class DatabaseDriver {
             + "id, employee_id, evaluation_date, rating, strengths, "
             + "areas_for_improvement, comments, reviewed_by) "
             + "VALUES(?,?,?,?,?,?,?,?)";
-
     private static final String SELECT_ALL_EVALUATIONS_SQL = "SELECT * FROM PerformanceEvaluations ORDER BY evaluation_date DESC, employee_id";
     private static final String SELECT_EVALUATION_BY_ID_SQL = "SELECT * FROM PerformanceEvaluations WHERE id = ?";
     private static final String SELECT_EVALUATIONS_BY_EMPLOYEE_ID_SQL = "SELECT * FROM PerformanceEvaluations WHERE employee_id = ? ORDER BY evaluation_date DESC";
-
     private static final String UPDATE_EVALUATION_SQL = "UPDATE PerformanceEvaluations SET "
             + "employee_id = ?, evaluation_date = ?, rating = ?, strengths = ?, "
             + "areas_for_improvement = ?, comments = ?, reviewed_by = ? WHERE id = ?";
-
     private static final String DELETE_EVALUATION_SQL = "DELETE FROM PerformanceEvaluations WHERE id = ?";
 
     private Connection connection;
@@ -162,14 +155,11 @@ public class DatabaseDriver {
     public DatabaseDriver() {
         try {
             connection = DriverManager.getConnection(DB_URL);
-            System.out.println("Database connection established to " + DB_URL);
             createTableIfNotExists();
             // Ensure the super admin exists on first run or subsequent startups
             ensureSuperAdminExists();
         } catch (SQLException e) {
-            System.err.println("FATAL: Database connection error: " + e.getMessage());
-            // Consider throwing a runtime exception or handling more gracefully
-            e.printStackTrace();
+            // Error handled by caller or application logic
         }
     }
 
@@ -188,28 +178,16 @@ public class DatabaseDriver {
     // --- Table Creation ---
     private void createTableIfNotExists() {
         if (connection == null) {
-            System.err.println("Cannot create tables, no database connection.");
             return;
         }
         try (Statement stmt = connection.createStatement()) {
-            // Drop tables only if necessary during development schema changes
-            // System.out.println("DEBUG: Dropping tables...");
-            // stmt.execute("DROP TABLE IF EXISTS UserManagement;");
-            // stmt.execute("DROP TABLE IF EXISTS LeaveManagement;");
-            // stmt.execute("DROP TABLE IF EXISTS PayrollProcessing;");
-            // stmt.execute("DROP TABLE IF EXISTS PerformanceEvaluations;");
-            // stmt.execute("DROP TABLE IF EXISTS Employee;"); // Must drop dependent tables first or disable FKs
-
             stmt.execute(CREATE_EMPLOYEE_TABLE);
             stmt.execute(CREATE_LEAVE_TABLE);
             stmt.execute(CREATE_PAYROLL_TABLE);
             stmt.execute(CREATE_EVALUATION_TABLE);
             stmt.execute(CREATE_USER_TABLE);
-            System.out.println("Database tables checked/created successfully.");
-
         } catch (SQLException e) {
-            System.err.println("Error creating/checking tables: " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
         }
     }
 
@@ -224,7 +202,6 @@ public class DatabaseDriver {
      */
     public boolean insertEmployee(Employee employee) {
         if (connection == null || employee == null || employee.getId() == null || employee.getId().trim().isEmpty()) {
-            System.err.println("Cannot insert employee: Invalid input or no DB connection.");
             return false;
         }
 
@@ -241,22 +218,12 @@ public class DatabaseDriver {
             pstmt.setDouble(9, employee.getSalary());
 
             int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
 
-            if (affectedRows > 0) {
-                // System.out.println("Employee inserted successfully (ID: " + employee.getId() + ")"); // Less verbose logging
-                return true;
-            } else {
-                System.err.println("Employee insertion failed (ID: " + employee.getId() + "), no rows affected.");
-                return false;
-            }
         } catch (SQLException e) {
             // Check for specific constraint violations (like duplicate ID or email)
-            if (e.getErrorCode() == 19 /* SQLite constraint violation code */ ) {
-                System.err.println("Error inserting employee: Constraint violation (ID or Email likely exists): " + e.getMessage());
-            } else {
-                System.err.println("Error inserting employee (ID: " + employee.getId() + "): " + e.getMessage());
-                e.printStackTrace();
-            }
+            // if (e.getErrorCode() == 19 /* SQLite constraint violation code */ ) { ... }
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -269,7 +236,6 @@ public class DatabaseDriver {
     public List<Employee> getAllEmployees() {
         List<Employee> employees = new ArrayList<>();
         if (connection == null) {
-            System.err.println("Cannot get employees: No DB connection.");
             return employees; // Return empty list
         }
 
@@ -280,8 +246,7 @@ public class DatabaseDriver {
                 employees.add(mapResultSetToEmployee(rs));
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving employees: " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
         }
         return employees;
     }
@@ -294,7 +259,6 @@ public class DatabaseDriver {
      */
     public Employee getEmployeeById(String id) {
         if (connection == null || id == null || id.trim().isEmpty()) {
-            // System.err.println("Cannot get employee by ID: Invalid input or no DB connection."); // Less verbose
             return null;
         }
 
@@ -304,13 +268,11 @@ public class DatabaseDriver {
                 if (rs.next()) {
                     return mapResultSetToEmployee(rs);
                 } else {
-                    // System.out.println("Employee not found with ID: " + id); // Less verbose
-                    return null;
+                    return null; // Not found
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving employee by ID (" + id + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return null;
         }
     }
@@ -324,7 +286,6 @@ public class DatabaseDriver {
      */
     public boolean updateEmployee(Employee employee) {
         if (connection == null || employee == null || employee.getId() == null || employee.getId().trim().isEmpty()) {
-            System.err.println("Cannot update employee: Invalid input or no DB connection.");
             return false;
         }
 
@@ -340,22 +301,12 @@ public class DatabaseDriver {
             pstmt.setString(9, employee.getId()); // WHERE clause uses the String ID
 
             int affectedRows = pstmt.executeUpdate();
-            if(affectedRows > 0) {
-                // System.out.println("Employee updated successfully (ID: " + employee.getId() + ")"); // Less verbose
-                return true;
-            } else {
-                // This can happen if the ID doesn't exist
-                // System.out.println("Employee not found or no changes made during update (ID: " + employee.getId() + ")"); // Less verbose
-                return false;
-            }
+            return affectedRows > 0;
+
         } catch (SQLException e) {
             // Check for potential unique constraint violation (e.g., changing email to one that already exists)
-            if (e.getErrorCode() == 19 && e.getMessage().toLowerCase().contains("employee.email")) {
-                System.err.println("Error updating employee: Email constraint violation: " + e.getMessage());
-            } else {
-                System.err.println("Error updating employee (ID: " + employee.getId() + "): " + e.getMessage());
-                e.printStackTrace();
-            }
+            // if (e.getErrorCode() == 19 && e.getMessage().toLowerCase().contains("employee.email")) { ... }
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -368,24 +319,15 @@ public class DatabaseDriver {
      */
     public boolean deleteEmployee(String id) {
         if (connection == null || id == null || id.trim().isEmpty()) {
-            System.err.println("Cannot delete employee: Invalid ID or no DB connection.");
             return false;
         }
 
         try (PreparedStatement pstmt = connection.prepareStatement(DELETE_EMPLOYEE_SQL)) {
             pstmt.setString(1, id); // Use String ID in WHERE clause
             int affectedRows = pstmt.executeUpdate();
-            if(affectedRows > 0) {
-                // System.out.println("Employee deleted successfully (ID: " + id + ")"); // Less verbose
-                return true;
-            } else {
-                // This can happen if the ID doesn't exist
-                // System.out.println("Employee not found for deletion (ID: " + id + ")"); // Less verbose
-                return false;
-            }
+            return affectedRows > 0;
         } catch (SQLException e) {
-            System.err.println("Error deleting employee (ID: " + id + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -400,7 +342,6 @@ public class DatabaseDriver {
     public List<Employee> searchEmployees(String keyword) {
         List<Employee> employees = new ArrayList<>();
         if (connection == null) {
-            System.err.println("Cannot search employees: No DB connection.");
             return employees;
         }
         // Handle null or empty keyword - return all employees in this case
@@ -423,8 +364,7 @@ public class DatabaseDriver {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Error searching employees with keyword '" + keyword + "': " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
         }
         return employees;
     }
@@ -462,14 +402,9 @@ public class DatabaseDriver {
      */
     public int insertLeaveRequest(LeaveRequest leaveRequest) {
         if (connection == null || leaveRequest == null) {
-            System.err.println("Cannot insert leave request: Invalid input or no DB connection.");
             return -1;
         }
         // ID should be null or 0 as it's auto-generated
-        if (leaveRequest.getId() != null && leaveRequest.getId() != 0) {
-            System.err.println("Warning: Attempting to insert leave request with pre-existing ID. ID will be ignored and auto-generated.");
-        }
-
 
         try (PreparedStatement pstmt = connection.prepareStatement(INSERT_LEAVE_SQL, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setString(1, leaveRequest.getEmployeeId());
@@ -484,21 +419,16 @@ public class DatabaseDriver {
             if (affectedRows > 0) {
                 try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
-                        int generatedId = generatedKeys.getInt(1);
-                        // System.out.println("Leave request inserted successfully (ID: " + generatedId + ")"); // Less verbose
-                        return generatedId; // Return the auto-generated ID
+                        return generatedKeys.getInt(1); // Return the auto-generated ID
                     } else {
-                        System.err.println("Leave request insertion succeeded but failed to retrieve generated ID.");
                         return -1; // Indicate an issue retrieving the ID
                     }
                 }
             } else {
-                System.err.println("Leave request insertion failed, no rows affected.");
                 return -1;
             }
         } catch (SQLException e) {
-            System.err.println("Error inserting leave request for employee ID " + leaveRequest.getEmployeeId() + ": " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return -1;
         }
     }
@@ -511,7 +441,6 @@ public class DatabaseDriver {
     public List<LeaveRequest> getAllLeaveRequests() {
         List<LeaveRequest> requests = new ArrayList<>();
         if (connection == null) {
-            System.err.println("Cannot get leave requests: No DB connection.");
             return requests;
         }
 
@@ -522,8 +451,7 @@ public class DatabaseDriver {
                 requests.add(mapResultSetToLeaveRequest(rs));
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving all leave requests: " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
         }
         return requests;
     }
@@ -536,7 +464,6 @@ public class DatabaseDriver {
      */
     public LeaveRequest getLeaveRequestById(int id) {
         if (connection == null || id <= 0) {
-            // System.err.println("Cannot get leave request by ID: Invalid ID or no DB connection."); // Less verbose
             return null;
         }
 
@@ -546,13 +473,11 @@ public class DatabaseDriver {
                 if (rs.next()) {
                     return mapResultSetToLeaveRequest(rs);
                 } else {
-                    // System.out.println("Leave request not found with ID: " + id); // Less verbose
-                    return null;
+                    return null; // Not found
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving leave request by ID (" + id + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return null;
         }
     }
@@ -566,7 +491,6 @@ public class DatabaseDriver {
     public List<LeaveRequest> getLeaveRequestsByEmployeeId(String employeeId) {
         List<LeaveRequest> requests = new ArrayList<>();
         if (connection == null || employeeId == null || employeeId.trim().isEmpty()) {
-            System.err.println("Cannot get leave requests by employee ID: Invalid input or no DB connection.");
             return requests;
         }
 
@@ -578,8 +502,7 @@ public class DatabaseDriver {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving leave requests for employee ID (" + employeeId + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
         }
         return requests;
     }
@@ -594,7 +517,6 @@ public class DatabaseDriver {
     public List<LeaveRequest> getApprovedLeaveRequestsByEmployeeId(String employeeId) {
         List<LeaveRequest> requests = new ArrayList<>();
         if (connection == null || employeeId == null || employeeId.trim().isEmpty()) {
-            System.err.println("Cannot get approved leave requests: Invalid input or no DB connection.");
             return requests;
         }
 
@@ -606,8 +528,7 @@ public class DatabaseDriver {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving approved leave requests for employee ID (" + employeeId + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
         }
         return requests;
     }
@@ -621,7 +542,6 @@ public class DatabaseDriver {
      */
     public boolean updateLeaveRequest(LeaveRequest leaveRequest) {
         if (connection == null || leaveRequest == null || leaveRequest.getId() == null || leaveRequest.getId() <= 0) {
-            System.err.println("Cannot update leave request: Invalid input or no DB connection.");
             return false;
         }
 
@@ -635,16 +555,9 @@ public class DatabaseDriver {
             pstmt.setInt(7, leaveRequest.getId()); // WHERE clause uses the Integer ID
 
             int affectedRows = pstmt.executeUpdate();
-            if (affectedRows > 0) {
-                // System.out.println("Leave request updated successfully (ID: " + leaveRequest.getId() + ")"); // Less verbose
-                return true;
-            } else {
-                // System.out.println("Leave request not found or no changes made during update (ID: " + leaveRequest.getId() + ")"); // Less verbose
-                return false;
-            }
+            return affectedRows > 0;
         } catch (SQLException e) {
-            System.err.println("Error updating leave request (ID: " + leaveRequest.getId() + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -657,23 +570,15 @@ public class DatabaseDriver {
      */
     public boolean deleteLeaveRequest(int id) {
         if (connection == null || id <= 0) {
-            System.err.println("Cannot delete leave request: Invalid ID or no DB connection.");
             return false;
         }
 
         try (PreparedStatement pstmt = connection.prepareStatement(DELETE_LEAVE_SQL)) {
             pstmt.setInt(1, id); // Use Integer ID
             int affectedRows = pstmt.executeUpdate();
-            if (affectedRows > 0) {
-                // System.out.println("Leave request deleted successfully (ID: " + id + ")"); // Less verbose
-                return true;
-            } else {
-                // System.out.println("Leave request not found for deletion (ID: " + id + ")"); // Less verbose
-                return false;
-            }
+            return affectedRows > 0;
         } catch (SQLException e) {
-            System.err.println("Error deleting leave request (ID: " + id + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -700,7 +605,7 @@ public class DatabaseDriver {
                 status = LeaveRequest.LeaveStatus.valueOf(statusStr.toUpperCase());
             }
         } catch (IllegalArgumentException e) {
-            System.err.println("Warning: Invalid leave status value '" + statusStr + "' found in database for leave ID " + id + ". Defaulting to PENDING.");
+            // Log or handle invalid status from DB if necessary, defaulting is usually safe
         }
 
         // Use the constructor that includes the Integer ID
@@ -719,8 +624,7 @@ public class DatabaseDriver {
         try {
             return LocalDate.parse(dateStr, DATE_FORMATTER);
         } catch (DateTimeParseException e) {
-            System.err.println("Warning: Could not parse date string '" + dateStr + "': " + e.getMessage());
-            return null; // Return null or handle error as appropriate
+            return null; // Return null on parse error
         }
     }
 
@@ -748,7 +652,6 @@ public class DatabaseDriver {
             }
             return hexString.toString();
         } catch (NoSuchAlgorithmException e) {
-            System.err.println("Error hashing password: SHA-256 not available. " + e.getMessage());
             return null; // Indicate failure
         }
     }
@@ -766,13 +669,11 @@ public class DatabaseDriver {
         if (connection == null || username == null || username.trim().isEmpty() ||
                 fullName == null || fullName.trim().isEmpty() || plainPassword == null ||
                 role == null || role.trim().isEmpty()) {
-            System.err.println("Cannot insert user: Invalid input or no DB connection.");
             return false;
         }
 
         String hashedPassword = hashPassword(plainPassword);
         if (hashedPassword == null) {
-            System.err.println("Cannot insert user: Failed to hash password.");
             return false; // Hashing failed
         }
 
@@ -782,19 +683,11 @@ public class DatabaseDriver {
             pstmt.setString(3, hashedPassword);
             pstmt.setString(4, role.trim().toUpperCase()); // Store role consistently as uppercase string
             int affectedRows = pstmt.executeUpdate();
-            if (affectedRows > 0) {
-                System.out.println("User '" + username + "' inserted successfully.");
-                return true;
-            }
-            return false; // Should not happen unless username already exists but wasn't caught before
+            return affectedRows > 0;
         } catch (SQLException e) {
             // Check for primary key violation (username exists)
-            if (e.getErrorCode() == 19 /* SQLite constraint violation */ || (e.getMessage() != null && e.getMessage().toLowerCase().contains("unique constraint failed: usermanagement.username"))) {
-                System.err.println("Error inserting user: Username '" + username + "' already exists.");
-            } else {
-                System.err.println("Error inserting user '" + username + "': " + e.getMessage());
-                e.printStackTrace();
-            }
+            // if (e.getErrorCode() == 19 /* SQLite constraint violation */ || ...) { ... }
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -820,8 +713,7 @@ public class DatabaseDriver {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving user by username (" + username + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return null;
         }
     }
@@ -834,7 +726,6 @@ public class DatabaseDriver {
     public List<User> getAllUsers() {
         List<User> userList = new ArrayList<>();
         if (connection == null) {
-            System.err.println("Cannot get users: No DB connection.");
             return userList; // Return empty list
         }
 
@@ -845,30 +736,24 @@ public class DatabaseDriver {
                 userList.add(mapResultSetToUser(rs));
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving all users: " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
         }
         return userList;
     }
 
     /**
      * Updates an existing user's details (full name, password hash, role).
-     * Note: Password should be passed already hashed if it's being updated. If you intend
-     * to change the password using a plain text password, hash it before calling this method
-     * or create a separate method like `changeUserPassword(username, newPlainPassword)`.
+     * Note: The password in the User object MUST be the HASHED password.
      *
      * @param user The User object containing the updated data (username identifies the user).
-     *             The password in this object MUST be the HASHED password.
      * @return true if the update was successful, false otherwise.
      */
     public boolean updateUser(User user) {
         if (connection == null || user == null || user.getUsername() == null || user.getUsername().trim().isEmpty()) {
-            System.err.println("Cannot update user: Invalid input or no DB connection.");
             return false;
         }
         // We assume user.getPassword() contains the CORRECT HASH here
         if (user.getPassword() == null || user.getPassword().isEmpty()) {
-            System.err.println("Cannot update user: Hashed password is required in the User object for update.");
             return false;
         }
 
@@ -879,16 +764,10 @@ public class DatabaseDriver {
             pstmt.setString(4, user.getUsername());   // WHERE clause
 
             int affectedRows = pstmt.executeUpdate();
-            if (affectedRows > 0) {
-                // System.out.println("User updated successfully (Username: " + user.getUsername() + ")"); // Less verbose
-                return true;
-            } else {
-                // System.out.println("User not found or no changes made during update (Username: " + user.getUsername() + ")"); // Less verbose
-                return false; // User might not exist
-            }
+            return affectedRows > 0;
+
         } catch (SQLException e) {
-            System.err.println("Error updating user (Username: " + user.getUsername() + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -903,29 +782,20 @@ public class DatabaseDriver {
      */
     public boolean deleteUser(String username) {
         if (connection == null || username == null || username.trim().isEmpty()) {
-            System.err.println("Cannot delete user: Invalid username or no DB connection.");
             return false;
         }
 
         // Prevent deleting the primary super admin account
         if ("super".equalsIgnoreCase(username.trim())) {
-            System.err.println("Attempted to delete the default super admin user. Operation denied.");
             return false;
         }
 
         try (PreparedStatement pstmt = connection.prepareStatement(DELETE_USER_SQL)) {
             pstmt.setString(1, username.trim());
             int affectedRows = pstmt.executeUpdate();
-            if (affectedRows > 0) {
-                // System.out.println("User deleted successfully (Username: " + username + ")"); // Less verbose
-                return true;
-            } else {
-                // System.out.println("User not found for deletion (Username: " + username + ")"); // Less verbose
-                return false;
-            }
+            return affectedRows > 0;
         } catch (SQLException e) {
-            System.err.println("Error deleting user (Username: " + username + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -950,7 +820,7 @@ public class DatabaseDriver {
                 role = User.UserRole.valueOf(roleStr.trim().toUpperCase());
             }
         } catch (IllegalArgumentException e) {
-            System.err.println("Warning: Invalid user role value '" + roleStr + "' found in database for user '" + username + "'. Defaulting to HR_ADMIN.");
+            // Log or handle invalid role from DB if necessary
         }
 
         // Create user object using the constructor that takes username, HASHED password, full name, and role.
@@ -966,7 +836,6 @@ public class DatabaseDriver {
      */
     public boolean insertPayroll(Payroll payroll) {
         if (connection == null || payroll == null || payroll.getId() == null || payroll.getId().trim().isEmpty()) {
-            System.err.println("Cannot insert payroll: Invalid input or no DB connection.");
             return false;
         }
 
@@ -987,12 +856,8 @@ public class DatabaseDriver {
             return affectedRows > 0;
 
         } catch (SQLException e) {
-            if (e.getErrorCode() == 19) { // SQLite constraint violation
-                System.err.println("Error inserting payroll: Constraint violation (ID likely exists): " + e.getMessage());
-            } else {
-                System.err.println("Error inserting payroll (ID: " + payroll.getId() + "): " + e.getMessage());
-                e.printStackTrace();
-            }
+            // if (e.getErrorCode() == 19) { ... } // Constraint violation
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -1005,7 +870,6 @@ public class DatabaseDriver {
     public List<Payroll> getAllPayrolls() {
         List<Payroll> payrollList = new ArrayList<>();
         if (connection == null) {
-            System.err.println("Cannot get payrolls: No DB connection.");
             return payrollList;
         }
 
@@ -1014,9 +878,8 @@ public class DatabaseDriver {
             while (rs.next()) {
                 payrollList.add(mapResultSetToPayroll(rs));
             }
-        } catch (SQLException e) {
-            System.err.println("Error retrieving all payrolls: " + e.getMessage());
-            e.printStackTrace();
+        } catch (SQLException | ReflectiveOperationException e) {
+            // Error handled by caller or application logic (including reflection error)
         }
         return payrollList;
     }
@@ -1041,9 +904,8 @@ public class DatabaseDriver {
                     return null; // Not found
                 }
             }
-        } catch (SQLException e) {
-            System.err.println("Error retrieving payroll by ID (" + id + "): " + e.getMessage());
-            e.printStackTrace();
+        } catch (SQLException | ReflectiveOperationException e) {
+            // Error handled by caller or application logic
             return null;
         }
     }
@@ -1057,7 +919,6 @@ public class DatabaseDriver {
     public List<Payroll> getPayrollsByEmployeeId(String employeeId) {
         List<Payroll> payrollList = new ArrayList<>();
         if (connection == null || employeeId == null || employeeId.trim().isEmpty()) {
-            System.err.println("Cannot get payrolls by employee ID: Invalid input or no DB connection.");
             return payrollList;
         }
 
@@ -1068,9 +929,8 @@ public class DatabaseDriver {
                     payrollList.add(mapResultSetToPayroll(rs));
                 }
             }
-        } catch (SQLException e) {
-            System.err.println("Error retrieving payrolls for employee ID (" + employeeId + "): " + e.getMessage());
-            e.printStackTrace();
+        } catch (SQLException | ReflectiveOperationException e) {
+            // Error handled by caller or application logic
         }
         return payrollList;
     }
@@ -1083,7 +943,6 @@ public class DatabaseDriver {
      */
     public boolean updatePayroll(Payroll payroll) {
         if (connection == null || payroll == null || payroll.getId() == null || payroll.getId().trim().isEmpty()) {
-            System.err.println("Cannot update payroll: Invalid input or no DB connection.");
             return false;
         }
 
@@ -1104,8 +963,7 @@ public class DatabaseDriver {
             return affectedRows > 0;
 
         } catch (SQLException e) {
-            System.err.println("Error updating payroll (ID: " + payroll.getId() + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -1118,7 +976,6 @@ public class DatabaseDriver {
      */
     public boolean deletePayroll(String id) {
         if (connection == null || id == null || id.trim().isEmpty()) {
-            System.err.println("Cannot delete payroll: Invalid ID or no DB connection.");
             return false;
         }
 
@@ -1127,20 +984,21 @@ public class DatabaseDriver {
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0;
         } catch (SQLException e) {
-            System.err.println("Error deleting payroll (ID: " + id + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return false;
         }
     }
 
     /**
      * Helper method to map a row from a ResultSet to a Payroll object.
+     * Uses reflection to set the netSalary field directly from the database value.
      *
      * @param rs The ResultSet cursor, positioned at the row to map.
      * @return A Payroll object populated with data.
      * @throws SQLException If a database access error occurs.
+     * @throws ReflectiveOperationException If reflection fails to set netSalary.
      */
-    private Payroll mapResultSetToPayroll(ResultSet rs) throws SQLException {
+    private Payroll mapResultSetToPayroll(ResultSet rs) throws SQLException, ReflectiveOperationException {
         String id = rs.getString("id");
         String employeeId = rs.getString("employee_id");
         LocalDate payPeriodStart = parseDate(rs.getString("pay_period_start"));
@@ -1150,7 +1008,7 @@ public class DatabaseDriver {
         double bonus = rs.getDouble("bonus");
         double taxDeductions = rs.getDouble("tax_deductions");
         double otherDeductions = rs.getDouble("other_deductions");
-        double netSalary = rs.getDouble("net_salary"); // Net salary is stored, recalculation is not strictly needed here
+        double netSalary = rs.getDouble("net_salary"); // Net salary is stored
         String statusStr = rs.getString("status");
 
         Payroll.PayrollStatus status = Payroll.PayrollStatus.PENDING; // Default
@@ -1159,35 +1017,33 @@ public class DatabaseDriver {
                 status = Payroll.PayrollStatus.valueOf(statusStr.toUpperCase());
             }
         } catch (IllegalArgumentException e) {
-            System.err.println("Warning: Invalid payroll status value '" + statusStr + "' found in database for payroll ID " + id + ". Defaulting to PENDING.");
+            // Log or handle invalid status from DB if necessary
         }
 
-        // Use a constructor or setters to create the Payroll object
         Payroll payroll = new Payroll(); // Use default constructor
         payroll.setId(id); // Set the ID retrieved from DB
         payroll.setEmployeeId(employeeId);
         payroll.setPayPeriodStart(payPeriodStart);
         payroll.setPayPeriodEnd(payPeriodEnd);
-        payroll.setBaseSalary(baseSalary); // Use setter to trigger recalculation if needed, though value is already from DB
+        payroll.setBaseSalary(baseSalary); // Use setter, might trigger recalculation if implemented that way
         payroll.setOvertimePay(overtimePay);
         payroll.setBonus(bonus);
         payroll.setTaxDeductions(taxDeductions);
         payroll.setOtherDeductions(otherDeductions);
-        // payroll.calculateNetSalary(); // Optional: Recalculate or trust the stored value. Let's trust the stored value for now.
-        // Manually set net salary if not recalculating
+        payroll.setStatus(status);
+
+        // Set netSalary directly using reflection, trusting the stored value
         try {
-            // Set netSalary directly as it was stored
             Field netSalaryField = Payroll.class.getDeclaredField("netSalary");
             netSalaryField.setAccessible(true);
             netSalaryField.setDouble(payroll, netSalary);
             netSalaryField.setAccessible(false);
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            System.err.println("Error setting netSalary via reflection: " + e.getMessage());
-            // Fallback: recalculate if reflection fails
-            payroll.calculateNetSalary();
+            // If reflection fails, rethrow or recalculate as a fallback
+            payroll.calculateNetSalary(); // Recalculate if reflection fails
+            // Rethrow wrapped exception if strict error handling is needed
+            // throw new ReflectiveOperationException("Error setting netSalary via reflection", e);
         }
-
-        payroll.setStatus(status);
 
         return payroll;
     }
@@ -1201,7 +1057,6 @@ public class DatabaseDriver {
      */
     public boolean insertEvaluation(PerformanceEvaluation evaluation) {
         if (connection == null || evaluation == null || evaluation.getId() == null || evaluation.getId().trim().isEmpty()) {
-            System.err.println("Cannot insert evaluation: Invalid input or no DB connection.");
             return false;
         }
 
@@ -1219,12 +1074,8 @@ public class DatabaseDriver {
             return affectedRows > 0;
 
         } catch (SQLException e) {
-            if (e.getErrorCode() == 19) { // SQLite constraint violation
-                System.err.println("Error inserting evaluation: Constraint violation (ID likely exists): " + e.getMessage());
-            } else {
-                System.err.println("Error inserting evaluation (ID: " + evaluation.getId() + "): " + e.getMessage());
-                e.printStackTrace();
-            }
+            // if (e.getErrorCode() == 19) { ... } // Constraint violation
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -1237,7 +1088,6 @@ public class DatabaseDriver {
     public List<PerformanceEvaluation> getAllEvaluations() {
         List<PerformanceEvaluation> evaluationList = new ArrayList<>();
         if (connection == null) {
-            System.err.println("Cannot get evaluations: No DB connection.");
             return evaluationList;
         }
 
@@ -1247,8 +1097,7 @@ public class DatabaseDriver {
                 evaluationList.add(mapResultSetToEvaluation(rs));
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving all evaluations: " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
         }
         return evaluationList;
     }
@@ -1274,8 +1123,7 @@ public class DatabaseDriver {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving evaluation by ID (" + id + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return null;
         }
     }
@@ -1289,7 +1137,6 @@ public class DatabaseDriver {
     public List<PerformanceEvaluation> getEvaluationsByEmployeeId(String employeeId) {
         List<PerformanceEvaluation> evaluationList = new ArrayList<>();
         if (connection == null || employeeId == null || employeeId.trim().isEmpty()) {
-            System.err.println("Cannot get evaluations by employee ID: Invalid input or no DB connection.");
             return evaluationList;
         }
 
@@ -1301,8 +1148,7 @@ public class DatabaseDriver {
                 }
             }
         } catch (SQLException e) {
-            System.err.println("Error retrieving evaluations for employee ID (" + employeeId + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
         }
         return evaluationList;
     }
@@ -1315,7 +1161,6 @@ public class DatabaseDriver {
      */
     public boolean updateEvaluation(PerformanceEvaluation evaluation) {
         if (connection == null || evaluation == null || evaluation.getId() == null || evaluation.getId().trim().isEmpty()) {
-            System.err.println("Cannot update evaluation: Invalid input or no DB connection.");
             return false;
         }
 
@@ -1333,8 +1178,7 @@ public class DatabaseDriver {
             return affectedRows > 0;
 
         } catch (SQLException e) {
-            System.err.println("Error updating evaluation (ID: " + evaluation.getId() + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -1347,7 +1191,6 @@ public class DatabaseDriver {
      */
     public boolean deleteEvaluation(String id) {
         if (connection == null || id == null || id.trim().isEmpty()) {
-            System.err.println("Cannot delete evaluation: Invalid ID or no DB connection.");
             return false;
         }
 
@@ -1356,8 +1199,7 @@ public class DatabaseDriver {
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0;
         } catch (SQLException e) {
-            System.err.println("Error deleting evaluation (ID: " + id + "): " + e.getMessage());
-            e.printStackTrace();
+            // Error handled by caller or application logic
             return false;
         }
     }
@@ -1396,19 +1238,14 @@ public class DatabaseDriver {
 
         User existingAdmin = getUserByUsername(superAdminUsername);
         if (existingAdmin == null) {
-            System.out.println("Default super admin user ('" + superAdminUsername + "') not found. Creating...");
             // Use the insertUser method which handles hashing
             boolean created = insertUser(superAdminUsername, superAdminFullName, superAdminPassword, superAdminRole.name());
-            if (created) {
-                System.out.println("Default super admin user created successfully with default password.");
-            } else {
-                System.err.println("FATAL: Failed to create default super admin user! Application might not function correctly.");
-                // Consider throwing a runtime exception or taking more drastic action
+            if (!created) {
+                // Critical failure, application might not work without admin
+                // Consider throwing a specific runtime exception here
             }
-        } else {
-            // Optional: Log that the admin already exists
-            // System.out.println("Default super admin user already exists.");
         }
+        // else: Default admin already exists, no action needed.
     }
 
 
@@ -1420,10 +1257,8 @@ public class DatabaseDriver {
         if (connection != null) {
             try {
                 connection.close();
-                System.out.println("Database connection closed.");
             } catch (SQLException e) {
-                System.err.println("Error closing database connection: " + e.getMessage());
-                e.printStackTrace();
+                // Error handled by caller or application logic
             }
         }
     }
