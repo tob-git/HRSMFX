@@ -7,6 +7,11 @@ import com.example.hrsm2.service.LeaveRequestService;
 import com.example.hrsm2.service.PayrollService;
 import com.example.hrsm2.service.PerformanceEvaluationService;
 import com.example.hrsm2.service.UserService;
+import com.example.hrsm2.gui.EmployeeGUI;
+import com.example.hrsm2.gui.PayrollGUI;
+import com.example.hrsm2.gui.LeaveGUI;
+import com.example.hrsm2.gui.PerformanceGUI;
+import com.example.hrsm2.gui.UserGUI;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -104,7 +109,7 @@ public class MainController implements Initializable {
         Tab employeeTab = new Tab("Employee Management");
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/hrsm2/employee-view.fxml"));
         Parent employeeView = loader.load();
-        EmployeeController controller = loader.getController();
+        EmployeeGUI controller = loader.getController();
         employeeTab.setContent(employeeView);
         tabPane.getTabs().add(employeeTab);
     }
@@ -113,7 +118,7 @@ public class MainController implements Initializable {
         Tab leaveTab = new Tab("Leave Management");
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/hrsm2/leave-view.fxml"));
         Parent leaveView = loader.load();
-        LeaveController controller = loader.getController();
+        LeaveGUI controller = loader.getController();
         leaveTab.setContent(leaveView);
         tabPane.getTabs().add(leaveTab);
     }
@@ -122,7 +127,7 @@ public class MainController implements Initializable {
         Tab payrollTab = new Tab("Payroll Processing");
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/hrsm2/payroll-view.fxml"));
         Parent payrollView = loader.load();
-        PayrollController controller = loader.getController();
+        PayrollGUI controller = loader.getController();
         payrollTab.setContent(payrollView);
         tabPane.getTabs().add(payrollTab);
     }
@@ -131,7 +136,7 @@ public class MainController implements Initializable {
         Tab performanceTab = new Tab("Performance Evaluations");
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/hrsm2/performance-view.fxml"));
         Parent performanceView = loader.load();
-        PerformanceController controller = loader.getController();
+        PerformanceGUI controller = loader.getController();
         performanceTab.setContent(performanceView);
         tabPane.getTabs().add(performanceTab);
     }
@@ -140,7 +145,7 @@ public class MainController implements Initializable {
         Tab userTab = new Tab("User Management");
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/hrsm2/user-view.fxml"));
         Parent userView = loader.load();
-        UserController controller = loader.getController();
+        UserGUI controller = loader.getController();
         userTab.setContent(userView);
         tabPane.getTabs().add(userTab);
     }
