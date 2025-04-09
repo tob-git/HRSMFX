@@ -81,29 +81,6 @@ void getEmployeeById(String ID, String FirstName, String LastName, String Email,
     assertEquals(FirstName+LastName+Email+Phone+Department+Salary, fetched.getFirstName()+fetched.getLastName()+fetched.getEmail()+fetched.getPhone()+fetched.getDepartment()+fetched.getSalary(), "Employee name should match");   //////// recheck + sign
 }
 
-       /*
-@ParameterizedTest
-@Order(5)
-@DisplayName("5. Update Employee Test")
-@CsvSource({
-        "ID1",
-        "ID2",
-        "ID3",
-        "ID4",
-        "ID5"
-})
-void updateEmployee(String ID) {
-    Employee employee = operation.getEmployeeById(ID);
-    employee.setSalary(8000.50);
-    employee.setDepartment("7amada");
-
-    boolean updated = operation.updateEmployee(employee);
-    assertTrue(updated, "Employee should be updated successfully");
-
-    Employee updatedEmp = operation.getEmployeeById(testEmployeeId);
-    assertEquals(8000.50, updatedEmp.getSalary(), "Updated salary should match");
-    assertEquals("7amada", updatedEmp.getDepartment(), "Updated department should match");
-}   //*/
 @ParameterizedTest
 @Order(5)
 @DisplayName("5. Fail to Update an invalid Employee Test")
@@ -135,11 +112,11 @@ void searchEmployees(String ID, String FirstName, String LastName, String Email,
     Employee employee = new Employee(ID,FirstName,LastName, Email, Phone,
             LocalDate.of(2023, 11, 15), Department, Department, Salary);
 
-    List<Employee> results = operation.searchEmployees("Eva");
-    //Employee employee_for_test = operation.getEmployeeById(ID);
+    //operation.addEmployee(employee);
+    List<Employee> results = operation.searchEmployees(employee.getFirstName());
     assertNotNull(results, "Search results should not be null");
-    //assertTrue(results.contains(employee), "Search should return the test employee");
-    assertTrue(results.stream().anyMatch(e -> e.getId().equals(ID)), "Search should return the test employee");
+    assertTrue(results.contains(employee), "Search should return the test employee");
+
 }
 //*/
 
