@@ -63,6 +63,7 @@ class UserServiceTest {
         assertTrue(operation.isUsernameTaken(username));
     }
 
+    
     @ParameterizedTest
     @Order(3)
     @DisplayName("3. Should Fail creating an existing user")
