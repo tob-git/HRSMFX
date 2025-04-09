@@ -121,7 +121,7 @@ class UserServiceTest {
             "TopG, TopG123"
     })
     void testCorrectAuthenticate(String username, String password) {
-        operation.createUser(user.getUsername(), user.getPassword(), user.getFullName(), user.getRole());
+
         User authenticated = operation.authenticate(username, password);
 
         assertNotNull(authenticated);
