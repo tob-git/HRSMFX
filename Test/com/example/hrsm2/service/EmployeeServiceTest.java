@@ -77,6 +77,7 @@ void getAllEmployees() {
 })
 void getEmployeeById(String ID, String FirstName, String LastName, String Email, String Phone, String Department, double Salary) {
     Employee fetched = operation.getEmployeeById(ID);
+
     assertNotNull(fetched, "Employee should be found by ID");
     assertEquals(FirstName+LastName+Email+Phone+Department+Salary, fetched.getFirstName()+fetched.getLastName()+fetched.getEmail()+fetched.getPhone()+fetched.getDepartment()+fetched.getSalary(), "Employee name should match");   //////// recheck + sign
 }
@@ -112,7 +113,7 @@ void searchEmployees(String ID, String FirstName, String LastName, String Email,
     Employee employee = new Employee(ID,FirstName,LastName, Email, Phone,
             LocalDate.of(2023, 11, 15), Department, Department, Salary);
 
-    //operation.addEmployee(employee);
+    assertFalse(operation.addEmployee(employee));
     List<Employee> results = operation.searchEmployees(employee.getFirstName());
     assertNotNull(results, "Search results should not be null");
     assertTrue(results.contains(employee), "Search should return the test employee");
