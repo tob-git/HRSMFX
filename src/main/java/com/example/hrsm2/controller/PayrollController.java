@@ -4,6 +4,8 @@ import com.example.hrsm2.model.Employee;
 import com.example.hrsm2.model.Payroll;
 import com.example.hrsm2.service.EmployeeService;
 import com.example.hrsm2.service.PayrollService;
+import com.example.hrsm2.event.EmployeeEvent;
+import com.example.hrsm2.event.EventManager;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -11,10 +13,13 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.util.StringConverter;
+import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
 
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ResourceBundle;
 
 public class PayrollController implements Initializable {
@@ -83,7 +88,15 @@ public class PayrollController implements Initializable {
     public void initialize(URL url, ResourceBundle rb) {
         // Initialize table columns
         idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
-        employeeIdColumn.setCellValueFactory(new PropertyValueFactory<>("employeeId"));
+        employeeIdColumn.setCellValueFactory(cellData -> {
+            Payroll payroll = cellData.getValue();
+            // Find the employee by ID
+            Employee employee = employeeService.getEmployeeById(payroll.getEmployeeId());
+            // Return the full name if found, otherwise return the ID
+            return new SimpleStringProperty(employee != null ? 
+                employee.getFirstName() + " " + employee.getLastName() : 
+                payroll.getEmployeeId());
+        });
         startDateColumn.setCellValueFactory(new PropertyValueFactory<>("payPeriodStart"));
         endDateColumn.setCellValueFactory(new PropertyValueFactory<>("payPeriodEnd"));
         baseSalaryColumn.setCellValueFactory(new PropertyValueFactory<>("baseSalary"));
@@ -120,6 +133,8 @@ public class PayrollController implements Initializable {
         
         // Setup fields to update net salary calculation
         baseSalaryField.textProperty().addListener((obs, oldVal, newVal) -> calculateNetSalary());
+        startDatePicker.valueProperty().addListener((obs, oldVal, newVal) -> calculateNetSalary());
+        endDatePicker.valueProperty().addListener((obs, oldVal, newVal) -> calculateNetSalary());
         overtimeField.textProperty().addListener((obs, oldVal, newVal) -> calculateNetSalary());
         bonusField.textProperty().addListener((obs, oldVal, newVal) -> calculateNetSalary());
         taxDeductionsField.textProperty().addListener((obs, oldVal, newVal) -> calculateNetSalary());
@@ -154,11 +169,14 @@ public class PayrollController implements Initializable {
         startDatePicker.setValue(firstOfMonth);
         endDatePicker.setValue(lastOfMonth);
         
-        // Load employee data
+        // Load employees from the service
         loadEmployees();
         
-        // Load initial payroll data
+        // Load payroll data
         refreshPayrollList();
+        
+        // Register for employee events
+        registerForEmployeeEvents();
         
         // Initialize fields with zeros
         clearForm();
@@ -211,8 +229,16 @@ public class PayrollController implements Initializable {
             double bonus = getDoubleFromField(bonusField, 0.0);
             double taxDeductions = getDoubleFromField(taxDeductionsField, 0.0);
             double otherDeductions = getDoubleFromField(otherDeductionsField, 0.0);
+            LocalDate startDate = startDatePicker.getValue();
+            LocalDate endDate = endDatePicker.getValue();
+            double netSalary = 0.0;
+            if (startDate != null && endDate != null && !endDate.isBefore(startDate)) {
+                long daysBetween = ChronoUnit.DAYS.between(startDate, endDate.plusDays(1));
+                netSalary = baseSalary + overtime + bonus - taxDeductions - otherDeductions;
+                netSalary = netSalary * (daysBetween / 30);}
+
             
-            double netSalary = baseSalary + overtime + bonus - taxDeductions - otherDeductions;
+
             netSalaryField.setText(String.format("%.2f", netSalary));
         } catch (NumberFormatException e) {
             netSalaryField.setText("Error");
@@ -365,7 +391,7 @@ public class PayrollController implements Initializable {
         markAsPaidButton.setDisable(true);
     }
     
-    private void refreshPayrollList() {
+    public void refreshPayrollList() {
         payrollList.clear();
         payrollList.addAll(payrollService.getAllPayrolls());
         payrollTable.setItems(payrollList);
@@ -493,5 +519,47 @@ public class PayrollController implements Initializable {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+    
+    /**
+     * Register this controller to listen for employee events.
+     * This allows the controller to refresh its employee list when employees are added, updated, or deleted.
+     */
+    private void registerForEmployeeEvents() {
+        EventManager eventManager = EventManager.getInstance();
+        
+        // Listen for employee added events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_ADDED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+            });
+        });
+        
+        // Listen for employee updated events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_UPDATED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+                // If the updated employee is currently selected, update the base salary
+                if (employeeComboBox.getValue() != null && 
+                    employeeComboBox.getValue().getId().equals(event.getEmployee().getId())) {
+                    updateBaseSalary(event.getEmployee());
+                    calculateNetSalary();
+                }
+            });
+        });
+        
+        // Listen for employee deleted events
+        eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_DELETED, event -> {
+            Platform.runLater(() -> {
+                loadEmployees();
+                // If the deleted employee was selected, clear the selection
+                if (employeeComboBox.getValue() != null && 
+                    employeeComboBox.getValue().getId().equals(event.getEmployee().getId())) {
+                    employeeComboBox.getSelectionModel().clearSelection();
+                    baseSalaryField.setText("0.00");
+                    calculateNetSalary();
+                }
+            });
+        });
     }
 } 

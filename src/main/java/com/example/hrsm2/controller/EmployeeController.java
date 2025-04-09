@@ -2,6 +2,8 @@ package com.example.hrsm2.controller;
 
 import com.example.hrsm2.model.Employee;
 import com.example.hrsm2.service.EmployeeService;
+import com.example.hrsm2.event.EmployeeEvent;
+import com.example.hrsm2.event.EventManager;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -195,7 +197,10 @@ public class EmployeeController implements Initializable {
             if (success) {
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Employee added successfully.");
                 clearForm();             // Clear the input fields
-                refreshEmployeeList();   // Reload data from the database into the table
+                refreshEmployeeList();
+                
+                // Fire event to notify other controllers
+                EventManager.getInstance().fireEvent(new EmployeeEvent(EmployeeEvent.EMPLOYEE_ADDED, newEmployee));
             } else {
                 // Service/DB driver should log specifics, show generic error here
                 showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to add employee. Possible duplicate ID/Email or database issue. Check logs.");
@@ -214,15 +219,16 @@ public class EmployeeController implements Initializable {
     @FXML
     private void handleUpdateEmployee() {
         if (selectedEmployee == null) {
-            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an employee from the table to update.");
+            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an employee to update.");
             return;
         }
+        
         if (!validateInputs()) {
-            return; // Validation failed
+            return; // Validation failed, message shown by validateInputs
         }
 
         try {
-            // Update the fields of the *selected* Employee object
+            // Update the selected employee with new values
             selectedEmployee.setFirstName(firstNameField.getText().trim());
             selectedEmployee.setLastName(lastNameField.getText().trim());
             selectedEmployee.setEmail(emailField.getText().trim());
@@ -237,13 +243,11 @@ public class EmployeeController implements Initializable {
 
             if (success) {
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Employee updated successfully.");
-                // Refresh the list and try to re-select the updated item
-                int selectedIndex = employeeTable.getSelectionModel().getSelectedIndex();
+                clearForm();             // Clear the input fields
                 refreshEmployeeList();
-                if (selectedIndex >= 0) {
-                    // Use Platform.runLater if the refresh might happen asynchronously
-                    Platform.runLater(() -> employeeTable.getSelectionModel().select(selectedIndex));
-                }
+                
+                // Fire event to notify other controllers
+                EventManager.getInstance().fireEvent(new EmployeeEvent(EmployeeEvent.EMPLOYEE_UPDATED, selectedEmployee));
             } else {
                 showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to update employee. Possible duplicate email or database issue. Check logs.");
             }
@@ -259,29 +263,29 @@ public class EmployeeController implements Initializable {
     @FXML
     private void handleDeleteEmployee() {
         if (selectedEmployee == null) {
-            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an employee from the table to delete.");
+            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an employee to delete.");
             return;
         }
 
-        // Confirmation dialog
-        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION,
-                "Are you sure you want to delete employee: " + selectedEmployee.getFullName() + "?",
-                ButtonType.YES, ButtonType.NO);
+        // Confirm deletion
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
         confirmAlert.setTitle("Confirm Deletion");
-        confirmAlert.setHeaderText("Delete Employee Confirmation"); // More descriptive header
-
+        confirmAlert.setHeaderText("Delete Employee");
+        confirmAlert.setContentText("Are you sure you want to delete " + selectedEmployee.getFirstName() + " " + selectedEmployee.getLastName() + "?");
+        
         confirmAlert.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.YES) {
-                // User confirmed deletion
+            if (response == ButtonType.OK) {
                 try {
-                    // Call service to delete the employee by their String ID
+                    // Call service to delete the employee from the database
                     boolean success = employeeService.deleteEmployee(selectedEmployee.getId());
 
                     if (success) {
                         showAlert(Alert.AlertType.INFORMATION, "Success", "Employee deleted successfully.");
-                        clearForm();             // Clear form after deletion
-                        refreshEmployeeList();   // Refresh table
-                        // Selection will be cleared by refresh/clearForm
+                        clearForm();             // Clear the input fields
+                        refreshEmployeeList();
+                        
+                        // Fire event to notify other controllers
+                        EventManager.getInstance().fireEvent(new EmployeeEvent(EmployeeEvent.EMPLOYEE_DELETED, selectedEmployee));
                     } else {
                         showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to delete employee. Employee might not exist or a database error occurred.");
                     }
@@ -321,7 +325,7 @@ public class EmployeeController implements Initializable {
         }
     }
 
-    private void refreshEmployeeList() {
+    public void refreshEmployeeList() {
         try {
             // Fetch data (potentially slow, consider background thread for large datasets)
             List<Employee> employeesFromDb = employeeService.getAllEmployees();
