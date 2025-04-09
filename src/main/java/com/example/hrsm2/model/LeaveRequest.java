@@ -1,7 +1,6 @@
 package com.example.hrsm2.model;
 
 import java.time.LocalDate;
-// Removed UUID import
 
 public class LeaveRequest {
     private Integer id; // Changed from String to Integer (nullable for new requests before DB insert)
@@ -113,7 +112,7 @@ public class LeaveRequest {
     }
 
     @Override
-    public String toString() {
+            public String toString() {
         return "LeaveRequest{" +
                 "id=" + id +
                 ", employeeId='" + employeeId + '\'' +

@@ -4,21 +4,29 @@ import com.example.hrsm2.model.LeaveRequest;
 import com.example.hrsm2.util.DatabaseDriver;
 import java.util.List;
 
+/**
+ * Service layer for managing LeaveRequest business logic and data access.
+ * Acts as an intermediary between the Controller and the DatabaseDriver.
+ * Implements the Singleton pattern to ensure a single instance.
+ */
 public class LeaveRequestService {
     private static LeaveRequestService instance;
-    private final DatabaseDriver dbDriver; // Use DatabaseDriver instance
+    private final DatabaseDriver dbDriver;
 
-    // EmployeeService might still be needed for some logic, ensure it uses DB too
-    // private final EmployeeService employeeService;
-
-    // Default available days - This might need a more sophisticated source (e.g., Employee record or config)
+    // Default leave allowance per employee. In a real application, this might be configurable or stored per employee.
     private static final int DEFAULT_AVAILABLE_LEAVE_DAYS = 20;
 
+    // Private constructor to enforce Singleton pattern.
     private LeaveRequestService() {
-        dbDriver = DatabaseDriver.getInstance(); // Get singleton instance
-        // employeeService = EmployeeService.getInstance(); // If needed
+        dbDriver = DatabaseDriver.getInstance(); // Obtain the shared DatabaseDriver instance.
     }
 
+    /**
+     * Returns the singleton instance of LeaveRequestService.
+     * Ensures thread-safe lazy initialization.
+     *
+     * @return The single instance of LeaveRequestService.
+     */
     public static synchronized LeaveRequestService getInstance() {
         if (instance == null) {
             instance = new LeaveRequestService();
@@ -26,144 +34,214 @@ public class LeaveRequestService {
         return instance;
     }
 
-    // --- CRUD Operations using DatabaseDriver ---
+    // --- Database Interaction Methods ---
 
+    /**
+     * Retrieves all leave requests from the database.
+     *
+     * @return A list of all LeaveRequest objects.
+     */
     public List<LeaveRequest> getAllLeaveRequests() {
         return dbDriver.getAllLeaveRequests();
     }
 
-    public LeaveRequest getLeaveRequestById(int id) { // Parameter changed to int
+    /**
+     * Retrieves a specific leave request by its ID.
+     *
+     * @param id The ID of the leave request.
+     * @return The LeaveRequest object if found, otherwise null.
+     */
+    public LeaveRequest getLeaveRequestById(int id) {
         return dbDriver.getLeaveRequestById(id);
     }
 
+    /**
+     * Retrieves all leave requests submitted by a specific employee.
+     *
+     * @param employeeId The ID of the employee.
+     * @return A list of LeaveRequest objects for the specified employee.
+     */
     public List<LeaveRequest> getLeaveRequestsForEmployee(String employeeId) {
         return dbDriver.getLeaveRequestsByEmployeeId(employeeId);
     }
 
+    /**
+     * Submits a new leave request after performing validation checks.
+     * Checks for overlapping requests and sufficient available leave days.
+     *
+     * @param leaveRequest The LeaveRequest object to submit (ID should be null).
+     * @return true if the request was successfully inserted, false otherwise.
+     */
     public boolean submitLeaveRequest(LeaveRequest leaveRequest) {
-        // Validate inputs (dates, reason etc.) - Controller handles UI validation
+        // Basic validation of essential fields.
         if (leaveRequest == null || leaveRequest.getEmployeeId() == null || leaveRequest.getStartDate() == null || leaveRequest.getEndDate() == null) {
-            System.err.println("Submit failed: Invalid leave request data.");
+            System.err.println("Submit failed: Invalid leave request data (null fields).");
+            return false;
+        }
+        if (leaveRequest.getStartDate().isAfter(leaveRequest.getEndDate())) {
+            System.err.println("Submit failed: Start date cannot be after end date.");
             return false;
         }
 
-        // Check for overlapping leave requests from DB
+        // Business logic validation: Check for overlaps and available days.
         if (hasOverlappingLeave(leaveRequest)) {
-            System.err.println("Submit failed: Request overlaps with existing leave.");
+            System.err.println("Submit failed: Request overlaps with existing leave for employee " + leaveRequest.getEmployeeId());
             return false;
         }
-
-        // Check if employee has enough available leave days (based on DB data)
         if (!hasEnoughAvailableDays(leaveRequest)) {
-            System.err.println("Submit failed: Not enough available leave days.");
+            System.err.println("Submit failed: Not enough available leave days for employee " + leaveRequest.getEmployeeId());
             return false;
         }
 
-        // Insert into database
+        // Attempt to insert into the database.
         int generatedId = dbDriver.insertLeaveRequest(leaveRequest);
 
         if (generatedId > 0) {
-            leaveRequest.setId(generatedId); // Set the generated ID back to the object
+            leaveRequest.setId(generatedId); // Update the object with the database-generated ID.
             return true;
         } else {
+            System.err.println("Submit failed: Database insertion error for employee " + leaveRequest.getEmployeeId());
             return false;
         }
     }
 
-    public boolean approveLeaveRequest(int leaveRequestId, String managerComments) { // Parameter changed to int, added comments
+    /**
+     * Approves a pending leave request.
+     *
+     * @param leaveRequestId  The ID of the leave request to approve.
+     * @param managerComments Optional comments from the manager.
+     * @return true if the request was successfully updated to APPROVED, false otherwise.
+     */
+    public boolean approveLeaveRequest(int leaveRequestId, String managerComments) {
         LeaveRequest request = dbDriver.getLeaveRequestById(leaveRequestId);
+        // Can only approve requests that exist and are currently PENDING.
         if (request != null && request.getStatus() == LeaveRequest.LeaveStatus.PENDING) {
             request.setStatus(LeaveRequest.LeaveStatus.APPROVED);
-            request.setManagerComments(managerComments); // Set comments on approval too (optional)
-            return dbDriver.updateLeaveRequest(request); // Update in DB
+            request.setManagerComments(managerComments); // Store manager comments.
+            return dbDriver.updateLeaveRequest(request); // Persist changes.
         }
+        System.err.println("Approve failed: Request ID " + leaveRequestId + " not found or not in PENDING state.");
         return false;
     }
 
-    public boolean rejectLeaveRequest(int leaveRequestId, String managerComments) { // Parameter changed to int, added comments
+    /**
+     * Rejects a pending leave request. Requires manager comments.
+     *
+     * @param leaveRequestId  The ID of the leave request to reject.
+     * @param managerComments Mandatory comments explaining the rejection.
+     * @return true if the request was successfully updated to REJECTED, false otherwise.
+     */
+    public boolean rejectLeaveRequest(int leaveRequestId, String managerComments) {
+        // Manager comments are mandatory for rejection.
         if (managerComments == null || managerComments.trim().isEmpty()) {
-            System.err.println("Reject failed: Manager comments are required.");
-            return false; // Enforce comments on rejection
-        }
-        LeaveRequest request = dbDriver.getLeaveRequestById(leaveRequestId);
-        if (request != null && request.getStatus() == LeaveRequest.LeaveStatus.PENDING) {
-            request.setStatus(LeaveRequest.LeaveStatus.REJECTED);
-            request.setManagerComments(managerComments); // Set comments
-            return dbDriver.updateLeaveRequest(request); // Update in DB
-        }
-        return false;
-    }
-
-    // Update might be less common from UI, but useful internally
-    public boolean updateLeaveRequest(LeaveRequest leaveRequest) {
-        if (leaveRequest == null || leaveRequest.getId() == null || leaveRequest.getId() <= 0) {
+            System.err.println("Reject failed: Manager comments are required for request ID " + leaveRequestId);
             return false;
         }
-        // Add validation/checks if needed before updating (e.g., overlap, available days)
+        LeaveRequest request = dbDriver.getLeaveRequestById(leaveRequestId);
+        // Can only reject requests that exist and are currently PENDING.
+        if (request != null && request.getStatus() == LeaveRequest.LeaveStatus.PENDING) {
+            request.setStatus(LeaveRequest.LeaveStatus.REJECTED);
+            request.setManagerComments(managerComments); // Store manager comments.
+            return dbDriver.updateLeaveRequest(request); // Persist changes.
+        }
+        System.err.println("Reject failed: Request ID " + leaveRequestId + " not found or not in PENDING state.");
+        return false;
+    }
+
+    /**
+     * Updates an existing leave request in the database.
+     * Use with caution, consider business rules (e.g., can't update approved requests easily).
+     *
+     * @param leaveRequest The LeaveRequest object with updated information (must have a valid ID).
+     * @return true if the update was successful, false otherwise.
+     */
+    public boolean updateLeaveRequest(LeaveRequest leaveRequest) {
+        if (leaveRequest == null || leaveRequest.getId() == null || leaveRequest.getId() <= 0) {
+            System.err.println("Update failed: Invalid leave request data (null or invalid ID).");
+            return false;
+        }
+        // Consider adding validation similar to submitLeaveRequest if updates need strict checks.
         return dbDriver.updateLeaveRequest(leaveRequest);
     }
 
-    public boolean deleteLeaveRequest(int id) { // Parameter changed to int
-        // Maybe add checks: only delete PENDING requests?
+    /**
+     * Deletes a leave request from the database.
+     * Consider adding business rules (e.g., only allow deleting PENDING requests).
+     *
+     * @param id The ID of the leave request to delete.
+     * @return true if the deletion was successful, false otherwise.
+     */
+    public boolean deleteLeaveRequest(int id) {
         return dbDriver.deleteLeaveRequest(id);
     }
 
-    // --- Calculation Logic using DatabaseDriver ---
+    // --- Calculation and Validation Logic ---
 
+    /**
+     * Calculates the total number of approved leave days used by an employee.
+     * Fetches approved requests from the database for the calculation.
+     *
+     * @param employeeId The ID of the employee.
+     * @return The total number of approved leave days.
+     */
     public int getApprovedLeaveDaysForEmployee(String employeeId) {
         int totalDays = 0;
-        // Fetch only approved requests from DB
         List<LeaveRequest> approvedRequests = dbDriver.getApprovedLeaveRequestsByEmployeeId(employeeId);
         for (LeaveRequest request : approvedRequests) {
-            totalDays += request.getDurationInDays(); // Use model's calculation method
+            totalDays += request.getDurationInDays(); // Sum days using the model's calculation.
         }
         return totalDays;
     }
 
-    // Check for overlaps against DB data
+    /**
+     * Checks if a new leave request overlaps with existing, non-rejected requests for the same employee.
+     *
+     * @param newRequest The new leave request to check.
+     * @return true if an overlap is found, false otherwise.
+     */
     private boolean hasOverlappingLeave(LeaveRequest newRequest) {
-        // Fetch potentially conflicting requests (same employee, not rejected)
         List<LeaveRequest> existingRequests = dbDriver.getLeaveRequestsByEmployeeId(newRequest.getEmployeeId());
 
         for (LeaveRequest existing : existingRequests) {
-            // Skip rejected requests and the request itself if it has an ID (during update)
+            // Ignore rejected requests and the request itself if it's being updated.
             if (existing.getStatus() != LeaveRequest.LeaveStatus.REJECTED &&
-                    !existing.getId().equals(newRequest.getId())) { // Compare Integer IDs
+                    !existing.getId().equals(newRequest.getId())) { // Use .equals for Integer comparison.
 
-                // Check for date overlap (inclusive)
-                // Overlap exists if:
-                // (newStart <= existingEnd) and (newEnd >= existingStart)
+                // Standard date range overlap check (inclusive): (StartA <= EndB) and (EndA >= StartB)
                 if (!newRequest.getStartDate().isAfter(existing.getEndDate()) &&
                         !newRequest.getEndDate().isBefore(existing.getStartDate())) {
-                    System.out.println("Overlap detected with request ID: " + existing.getId());
-                    return true; // Overlap found
+                    System.out.println("Overlap detected: New request [" + newRequest.getStartDate() + " - " + newRequest.getEndDate() +
+                            "] overlaps with existing ID " + existing.getId() +
+                            " [" + existing.getStartDate() + " - " + existing.getEndDate() + "]");
+                    return true; // Overlap found.
                 }
             }
         }
-        return false; // No overlaps found
+        return false; // No overlaps found.
     }
 
-    // Check available days against DB data
+    /**
+     * Checks if an employee has enough available leave days for a given request.
+     * Compares requested days against the default allowance minus already approved days.
+     *
+     * @param request The leave request being submitted or updated.
+     * @return true if the employee has sufficient days, false otherwise.
+     */
     private boolean hasEnoughAvailableDays(LeaveRequest request) {
-        // Calculate requested days
         long requestedDays = request.getDurationInDays();
-        if (requestedDays <= 0) return true; // Or handle invalid date range earlier
+        // If date range is invalid (0 or negative days), this check passes,
+        // but it should ideally be caught by earlier validation.
+        if (requestedDays <= 0) return true;
 
-        // Calculate already approved days from DB
         int approvedDays = getApprovedLeaveDaysForEmployee(request.getEmployeeId());
-
-        // Calculate available days
         int availableDays = DEFAULT_AVAILABLE_LEAVE_DAYS - approvedDays;
 
-        // // If updating an already approved request, add its days back temporarily for the check
-        // // This logic is complex and potentially racy. Simpler to just check against current state.
-        // if (request.getId() != null && request.getId() > 0) {
-        //     LeaveRequest existing = dbDriver.getLeaveRequestById(request.getId());
-        //     if (existing != null && existing.getStatus() == LeaveRequest.LeaveStatus.APPROVED) {
-        //          availableDays += existing.getDurationInDays();
-        //     }
-        // }
-
-        return requestedDays <= availableDays;
+        boolean hasEnough = requestedDays <= availableDays;
+        if (!hasEnough) {
+            System.out.println("Insufficient days for request: Employee " + request.getEmployeeId() +
+                    ", Requested=" + requestedDays + ", Approved=" + approvedDays +
+                    ", Available=" + availableDays + " (Default Allowance=" + DEFAULT_AVAILABLE_LEAVE_DAYS + ")");
+        }
+        return hasEnough;
     }
 }
