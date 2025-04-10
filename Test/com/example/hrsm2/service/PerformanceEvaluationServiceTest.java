@@ -72,7 +72,7 @@ void getAllEvaluations() {
 
     // Validate the list size and content
     assertNotNull(evaluations, "Evaluations list should not be null.");
-    assertTrue(evaluations.size() > 0, "There should be at least 1 evaluation.");
+    assertTrue(evaluations.size() > 0, "There should be at least 1 evaluation."); // di el mafrood tefdal zy maheya keda mafish ta8iir.
 }
 
 @ParameterizedTest
