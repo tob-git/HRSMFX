@@ -79,9 +79,9 @@ public class UserController {
 
         if (username.isEmpty()) {
             errorMessage.append("Username is required.\n");
-        } else if (username.equalsIgnoreCase("super") && selectedUser == null) {
-            // Prevent creating another user named "super" (case-insensitive check)
-            errorMessage.append("Username 'super' is reserved.\n");
+        } else if (username.equals("super") && (selectedUser == null || !selectedUser.getUsername().equals("super"))) {
+            // Prevent creating another user named "super" (case-sensitive check)
+            errorMessage.append("Username \\'super\\' is reserved.\n");
         }
 
         if (password.isEmpty()) {
