@@ -12,7 +12,6 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.StackPane;
 import javafx.util.StringConverter;
 import javafx.beans.property.SimpleStringProperty;
 
@@ -80,9 +79,6 @@ public class PayrollGUI implements Initializable {
     private Button markAsPaidButton;
     @FXML
     private Button clearButton;
-    
-    @FXML
-    private StackPane notificationPane;
     
     // Controller for business logic
     private final PayrollController payrollController = new PayrollController();
@@ -272,7 +268,7 @@ public class PayrollGUI implements Initializable {
             Payroll payroll = payrollController.generatePayroll(selectedEmployee.getId(), startDate, endDate);
             
             if (payroll == null) {
-                showNotification(NotificationSystem.Type.ERROR, "Failed to generate payroll. Employee not found.");
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to generate payroll. Employee not found.");
                 return;
             }
             
@@ -287,7 +283,7 @@ public class PayrollGUI implements Initializable {
             payrollController.updatePayroll(payroll);
             
             // Show success message
-            showNotification(NotificationSystem.Type.SUCCESS, "Payroll generated successfully.");
+            showAlert(Alert.AlertType.INFORMATION, "Success", "Payroll generated successfully.");
             
             // Refresh list
             refreshPayrollList();
@@ -296,7 +292,7 @@ public class PayrollGUI implements Initializable {
             clearForm();
             
         } catch (Exception e) {
-            showNotification(NotificationSystem.Type.ERROR, "Failed to generate payroll: " + e.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to generate payroll: " + e.getMessage());
         }
     }
     
@@ -313,7 +309,7 @@ public class PayrollGUI implements Initializable {
             
             // Check if there are employees in the system
             if (employeeList.isEmpty()) {
-                showNotification(NotificationSystem.Type.ERROR, "No employees found. Please add employees first.");
+                showAlert(Alert.AlertType.ERROR, "Error", "No employees found. Please add employees first.");
                 return;
             }
             
@@ -321,13 +317,13 @@ public class PayrollGUI implements Initializable {
             payrollController.generatePayrollsForAllEmployees(startDate, endDate);
             
             // Show success message
-            showNotification(NotificationSystem.Type.SUCCESS, "Payrolls generated for all employees.");
+            showAlert(Alert.AlertType.INFORMATION, "Success", "Payrolls generated for all employees.");
             
             // Refresh list
             refreshPayrollList();
             
         } catch (Exception e) {
-            showNotification(NotificationSystem.Type.ERROR, "Failed to generate payrolls: " + e.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to generate payrolls: " + e.getMessage());
         }
     }
     
@@ -342,7 +338,7 @@ public class PayrollGUI implements Initializable {
             
             if (success) {
                 // Show success message
-                showNotification(NotificationSystem.Type.SUCCESS, "Payroll processed successfully.");
+                showAlert(Alert.AlertType.INFORMATION, "Success", "Payroll processed successfully.");
                 
                 // Refresh list
                 refreshPayrollList();
@@ -351,10 +347,10 @@ public class PayrollGUI implements Initializable {
                 payrollTable.getSelectionModel().clearSelection();
                 clearForm();
             } else {
-                showNotification(NotificationSystem.Type.ERROR, "Failed to process payroll. Invalid status.");
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to process payroll. Invalid status.");
             }
         } catch (Exception e) {
-            showNotification(NotificationSystem.Type.ERROR, "Failed to process payroll: " + e.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to process payroll: " + e.getMessage());
         }
     }
     
@@ -369,7 +365,7 @@ public class PayrollGUI implements Initializable {
             
             if (success) {
                 // Show success message
-                showNotification(NotificationSystem.Type.SUCCESS, "Payroll marked as paid successfully.");
+                showAlert(Alert.AlertType.INFORMATION, "Success", "Payroll marked as paid successfully.");
                 
                 // Refresh list
                 refreshPayrollList();
@@ -378,10 +374,10 @@ public class PayrollGUI implements Initializable {
                 payrollTable.getSelectionModel().clearSelection();
                 clearForm();
             } else {
-                showNotification(NotificationSystem.Type.ERROR, "Failed to mark payroll as paid. Invalid status.");
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to mark payroll as paid. Invalid status.");
             }
         } catch (Exception e) {
-            showNotification(NotificationSystem.Type.ERROR, "Failed to mark payroll as paid: " + e.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to mark payroll as paid: " + e.getMessage());
         }
     }
     
@@ -488,7 +484,7 @@ public class PayrollGUI implements Initializable {
         }
         
         if (errorMessage.length() > 0) {
-            showNotification(NotificationSystem.Type.ERROR, errorMessage.toString());
+            showAlert(Alert.AlertType.ERROR, "Validation Error", errorMessage.toString());
             return false;
         }
         
@@ -509,20 +505,19 @@ public class PayrollGUI implements Initializable {
         }
         
         if (errorMessage.length() > 0) {
-            showNotification(NotificationSystem.Type.ERROR, errorMessage.toString());
+            showAlert(Alert.AlertType.ERROR, "Validation Error", errorMessage.toString());
             return false;
         }
         
         return true;
     }
     
-    private void showNotification(NotificationSystem.Type type, String message) {
-        if (notificationPane != null) {
-            NotificationSystem.showNotification(notificationPane, message, type, 4);
-        } else {
-            // Fallback to console if notification pane not available
-            System.out.println(type + ": " + message);
-        }
+    private void showAlert(Alert.AlertType alertType, String title, String content) {
+        Alert alert = new Alert(alertType);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
     
     /**

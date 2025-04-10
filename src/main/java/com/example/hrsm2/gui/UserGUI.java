@@ -8,7 +8,6 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.StackPane;
 
 import java.net.URL;
 import java.util.List;
@@ -47,9 +46,6 @@ public class UserGUI implements Initializable {
 
     @FXML
     private Button deleteButton;
-    
-    @FXML
-    private StackPane notificationPane;
 
     // Controller for business logic
     private final UserController userController = new UserController();
@@ -102,7 +98,7 @@ public class UserGUI implements Initializable {
             username, plainPassword, confirmPassword, fullName, selectedUser);
         
         if (!validationError.isEmpty()) {
-            showNotification(NotificationSystem.Type.ERROR, validationError);
+            showAlert(Alert.AlertType.ERROR, "Validation Error", validationError);
             return;
         }
 
@@ -110,15 +106,15 @@ public class UserGUI implements Initializable {
         boolean success = userController.createHrAdminUser(username, plainPassword, fullName);
 
         if (success) {
-            showNotification(NotificationSystem.Type.SUCCESS, "HR user created successfully.");
+            showAlert(Alert.AlertType.INFORMATION, "Success", "HR user created successfully.");
             clearForm();
             refreshUserList();
         } else {
             // Check if the reason was username taken
             if (userController.isUsernameTaken(username)) {
-                showNotification(NotificationSystem.Type.ERROR, "Username '" + username + "' already exists. Please choose a different username.");
+                showAlert(Alert.AlertType.ERROR, "Error", "Username '" + username + "' already exists. Please choose a different username.");
             } else {
-                showNotification(NotificationSystem.Type.ERROR, "Failed to create HR user. See console/logs for details.");
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to create HR user. See console/logs for details.");
             }
         }
     }
@@ -131,30 +127,25 @@ public class UserGUI implements Initializable {
 
         // Prevent deleting the super admin through the UI
         if ("super".equalsIgnoreCase(selectedUser.getUsername())) {
-            showNotification(NotificationSystem.Type.WARNING, "The default super administrator account cannot be deleted.");
+            showAlert(Alert.AlertType.WARNING, "Delete Denied", "The default super administrator account cannot be deleted.");
             return;
         }
 
-        // Use Dialog for important confirmation
-        Dialog<ButtonType> dialog = new Dialog<>();
-        dialog.setTitle("Confirm Delete");
-        dialog.setHeaderText("Delete User");
-        dialog.setContentText("Are you sure you want to delete the user: " + selectedUser.getUsername() + "?");
-        
-        ButtonType deleteButton = new ButtonType("Delete", ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
-        dialog.getDialogPane().getButtonTypes().addAll(deleteButton, cancelButton);
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("Confirm Delete");
+        confirmAlert.setHeaderText("Delete User");
+        confirmAlert.setContentText("Are you sure you want to delete the user: " + selectedUser.getUsername() + "?");
 
-        dialog.showAndWait().ifPresent(response -> {
-            if (response == deleteButton) {
+        confirmAlert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
                 // Call controller to delete user
                 boolean success = userController.deleteUser(selectedUser.getUsername());
 
                 if (success) {
-                    showNotification(NotificationSystem.Type.SUCCESS, "User deleted successfully.");
+                    showAlert(Alert.AlertType.INFORMATION, "Success", "User deleted successfully.");
                     refreshUserList();
                 } else {
-                    showNotification(NotificationSystem.Type.ERROR, "Failed to delete user. The user might be the current user or an error occurred.");
+                    showAlert(Alert.AlertType.ERROR, "Error", "Failed to delete user. The user might be the current user or an error occurred.");
                 }
             }
         });
@@ -173,12 +164,11 @@ public class UserGUI implements Initializable {
         userTable.getSelectionModel().clearSelection();
     }
 
-    private void showNotification(NotificationSystem.Type type, String message) {
-        if (notificationPane != null) {
-            NotificationSystem.showNotification(notificationPane, message, type, 4);
-        } else {
-            // Fallback to console if notification pane not available
-            System.out.println(type + ": " + message);
-        }
+    private void showAlert(Alert.AlertType alertType, String title, String content) {
+        Alert alert = new Alert(alertType);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 } 

@@ -7,10 +7,10 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 import java.io.IOException;
@@ -28,9 +28,6 @@ public class LoginGUI {
     
     @FXML
     private Button loginButton;
-    
-    @FXML
-    private StackPane notificationPane;
     
     // Controller for business logic
     private final LoginController loginController = new LoginController();
@@ -59,23 +56,25 @@ public class LoginGUI {
                 stage.show();
                 
             } catch (IOException e) {
-                showNotification(NotificationSystem.Type.ERROR, "Failed to load main view: " + e.getMessage());
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to load main view: " + e.getMessage());
                 e.printStackTrace();
             }
         } else {
-            showNotification(NotificationSystem.Type.ERROR, "Invalid username or password.");
+            showAlert(Alert.AlertType.ERROR, "Authentication Failed", "Invalid username or password.");
         }
     }
     
     /**
-     * Display a notification
+     * Display an alert dialog
+     * @param alertType The type of alert
+     * @param title The alert title
+     * @param content The alert content
      */
-    private void showNotification(NotificationSystem.Type type, String message) {
-        if (notificationPane != null) {
-            NotificationSystem.showNotification(notificationPane, message, type, 4);
-        } else {
-            // Fallback to console if notification pane not available
-            System.out.println(type + ": " + message);
-        }
+    private void showAlert(Alert.AlertType alertType, String title, String content) {
+        Alert alert = new Alert(alertType);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 } 
