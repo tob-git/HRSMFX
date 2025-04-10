@@ -1,0 +1,30 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="HRMS Test Suite" parallel="classes" thread-count="5">
+    <!-- Unit Tests -->
+    <test name="Unit Tests">
+        <packages>
+            <package name="com.example.hrsm2.unittest.*"/>
+        </packages>
+    </test>
+    
+    <!-- White Box Tests -->
+    <test name="White Box Tests">
+        <packages>
+            <package name="com.example.hrsm2.whitebox.*"/>
+        </packages>
+    </test>
+    
+    <!-- Integration Tests -->
+    <test name="Integration Tests">
+        <packages>
+            <package name="com.example.hrsm2.integration.*"/>
+        </packages>
+    </test>
+    
+    <!-- GUI Tests - run separately as these are typically slower -->
+    <test name="GUI Tests">
+        <packages>
+            <package name="com.example.hrsm2.guitest.*"/>
+        </packages>
+    </test>
+</suite> 

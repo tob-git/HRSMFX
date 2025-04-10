@@ -1,68 +1,54 @@
 package com.example.hrsm2.controller;
 
-import com.example.hrsm2.HRMSApplication;
 import com.example.hrsm2.model.User;
 import com.example.hrsm2.service.UserService;
-import javafx.event.ActionEvent;
-import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextField;
-import javafx.stage.Stage;
 
-import java.io.IOException;
-
+/**
+ * Controller class for authentication and login operations.
+ * Contains business logic for user authentication.
+ */
 public class LoginController {
-    @FXML
-    private TextField usernameField;
+    // Service
+    private final UserService userService;
     
-    @FXML
-    private PasswordField passwordField;
-    
-    @FXML
-    private Button loginButton;
-    
-    private final UserService userService = UserService.getInstance();
-    
-    @FXML
-    private void handleLogin(ActionEvent event) {
-        String username = usernameField.getText();
-        String password = passwordField.getText();
-        
-        User user = userService.authenticate(username, password);
-        
-        if (user != null) {
-            try {
-                // Load main view
-                FXMLLoader loader = new FXMLLoader(HRMSApplication.class.getResource("main-view.fxml"));
-                Scene mainScene = new Scene(loader.load(), 1000, 700);
-                
-                // Get current stage
-                Stage stage = (Stage) loginButton.getScene().getWindow();
-                
-                // Set new scene
-                stage.setTitle("Human Resource Management System");
-                stage.setScene(mainScene);
-                stage.setMaximized(false);
-                stage.show();
-                
-            } catch (IOException e) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to load main view: " + e.getMessage());
-                e.printStackTrace();
-            }
-        } else {
-            showAlert(Alert.AlertType.ERROR, "Authentication Failed", "Invalid username or password.");
-        }
+    /**
+     * Constructor initializes the user service
+     */
+    public LoginController() {
+        this.userService = UserService.getInstance();
     }
     
-    private void showAlert(Alert.AlertType alertType, String title, String content) {
-        Alert alert = new Alert(alertType);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+    /**
+     * Authenticate a user with username and password
+     * @param username The username
+     * @param password The password
+     * @return User object if authentication successful, null otherwise
+     */
+    public User authenticate(String username, String password) {
+        return userService.authenticate(username, password);
+    }
+    
+    /**
+     * Check if a user is a super admin
+     * @param user The user to check
+     * @return true if user is a super admin, false otherwise
+     */
+    public boolean isSuperAdmin(User user) {
+        return user != null && user.isSuperAdmin();
+    }
+    
+    /**
+     * Get the current authenticated user
+     * @return The current authenticated user
+     */
+    public User getCurrentUser() {
+        return userService.getCurrentUser();
+    }
+    
+    /**
+     * Logout the current user
+     */
+    public void logout() {
+        userService.logout();
     }
 } 
