@@ -13,7 +13,7 @@ public class HRMSApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
         // Load sample data
-        SampleDataLoader.loadSampleData();
+        SampleDataLoader.loadSampleData();              ////////////////////////////////////////////////////////////
         
         // Load login view instead of main view
         FXMLLoader fxmlLoader = new FXMLLoader(HRMSApplication.class.getResource("login-view.fxml"));
