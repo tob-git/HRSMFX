@@ -5,73 +5,28 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="400.0" prefWidth="600.0" 
-            xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+<StackPane fx:id="notificationPane" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
             fx:controller="com.example.hrsm2.gui.LoginGUI">
-   <center>
-      <VBox alignment="CENTER" spacing="15.0" style="-fx-background-color: white;">
-         <padding>
-            <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
-         </padding>
-         <children>
-            <Label text="Human Resource Management System" textAlignment="CENTER">
-               <font>
-                  <Font name="System Bold" size="20.0" />
-               </font>
-            </Label>
-            <Label text="Login" textAlignment="CENTER">
-               <font>
-                  <Font size="16.0" />
-               </font>
-            </Label>
-            <Separator prefWidth="200.0" />
-            <GridPane hgap="10.0" vgap="10.0">
-              <columnConstraints>
-                <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES" maxWidth="120.0" minWidth="120.0" prefWidth="120.0" />
-                <ColumnConstraints hgrow="SOMETIMES" minWidth="250.0" prefWidth="250.0" />
-              </columnConstraints>
-              <rowConstraints>
-                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-              </rowConstraints>
-               <children>
-                  <Label text="Username:" />
-                  <Label text="Password:" GridPane.rowIndex="1" />
-                  <TextField fx:id="usernameField" promptText="Enter username" GridPane.columnIndex="1" />
-                  <PasswordField fx:id="passwordField" promptText="Enter password" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-               </children>
-            </GridPane>
-            <Button fx:id="loginButton" defaultButton="true" mnemonicParsing="false" onAction="#handleLogin" prefWidth="150.0" text="Login" />
-            <VBox alignment="CENTER" spacing="5">
-               <Label style="-fx-text-fill: #888888;" text="Default credentials:" />
-               <Label style="-fx-text-fill: #888888;" text="Super Admin: super / super123" />
-               <Label style="-fx-text-fill: #888888;" text="(Super Admin can create HR accounts)" />
+    <BorderPane>
+        <center>
+            <VBox alignment="CENTER" spacing="20.0">
+                <padding>
+                    <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+                </padding>
+                
+                <Label text="HR Management System" style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+                <Label text="Login" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+    
+                <GridPane hgap="10" vgap="10" alignment="CENTER">
+                    <Label text="Username:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                    <TextField fx:id="usernameField" prefWidth="200" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                    
+                    <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                    <PasswordField fx:id="passwordField" prefWidth="200" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                </GridPane>
+                
+                <Button fx:id="loginButton" text="Login" onAction="#handleLogin" prefWidth="100"/>
             </VBox>
-         </children>
-      </VBox>
-   </center>
-   <top>
-      <HBox alignment="CENTER" style="-fx-background-color: #4a6fdc;" BorderPane.alignment="CENTER">
-         <padding>
-            <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
-         </padding>
-         <children>
-            <Label text="HRMS Login" textFill="WHITE">
-               <font>
-                  <Font name="System Bold" size="18.0" />
-               </font>
-            </Label>
-         </children>
-      </HBox>
-   </top>
-   <bottom>
-      <HBox alignment="CENTER_RIGHT" style="-fx-background-color: #f4f4f4;">
-         <padding>
-            <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
-         </padding>
-         <children>
-            <Label text="© 2023 HRMS Application" />
-         </children>
-      </HBox>
-   </bottom>
-</BorderPane> 
+        </center>
+    </BorderPane>
+</StackPane> 
