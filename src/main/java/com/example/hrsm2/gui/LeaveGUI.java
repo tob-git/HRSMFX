@@ -14,9 +14,7 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.StackPane;
 import javafx.util.StringConverter;
-import javafx.util.Callback;
-import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
+
 import javafx.application.Platform;
 
 import java.net.URL;
@@ -25,7 +23,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.ResourceBundle;
-import com.example.hrsm2.gui.NotificationSystem;
+
+
 
 
 public class LeaveGUI extends LeaveController implements Initializable {
@@ -266,7 +265,7 @@ public class LeaveGUI extends LeaveController implements Initializable {
         }
 
         if (employeeComboBox.getValue() == null) {
-            showAlert("Please select an employee for this leave request.", NotificationSystem.Type.WARNING, 3);
+            NotificationSystem.showWarning(notificationPane, "Please select an employee for this leave request.");
             return;
         }
 
@@ -280,14 +279,14 @@ public class LeaveGUI extends LeaveController implements Initializable {
             boolean success = leaveController.submitLeaveRequest(employeeId, startDate, endDate, reason);
 
             if (success) {
-                showAlert("Leave request submitted successfully.", NotificationSystem.Type.SUCCESS, 3);
+                NotificationSystem.showSuccess(notificationPane, "Leave request submitted successfully.");
                 clearForm(); // Reset form for new entry.
                 refreshLeaveRequestList(); // Update table to show new request.
             } else {
-                showAlert("Failed to submit leave request.", NotificationSystem.Type.ERROR, 3);
+                NotificationSystem.showError(notificationPane, "Failed to submit leave request.");
             }
         } catch (Exception e) {
-            showAlert("An error occurred during submission: " + e.getMessage(), NotificationSystem.Type.ERROR, 3);
+            NotificationSystem.showError(notificationPane, "An error occurred during submission: " + e.getMessage());
             e.printStackTrace(); // Log for debugging.
         }
     }
@@ -295,12 +294,12 @@ public class LeaveGUI extends LeaveController implements Initializable {
     @FXML
     public void handleApproveLeaveRequest() {
         if (selectedLeaveRequest == null) {
-            showAlert("Please select a leave request to approve.", NotificationSystem.Type.WARNING, 3);
+            NotificationSystem.showWarning(notificationPane, "Please select a leave request to approve.");
             return;
         }
 
         if (selectedLeaveRequest.getStatus() != LeaveRequest.LeaveStatus.PENDING) {
-            showAlert("Only PENDING requests can be approved.", NotificationSystem.Type.WARNING, 3);
+            NotificationSystem.showWarning(notificationPane, "Only PENDING requests can be approved.");
             return;
         }
 
@@ -336,15 +335,15 @@ public class LeaveGUI extends LeaveController implements Initializable {
             boolean success = leaveController.approveLeaveRequest(selectedLeaveRequest.getId(), comments);
 
             if (success) {
-                showAlert("Leave request approved successfully.", NotificationSystem.Type.SUCCESS, 3);
+                NotificationSystem.showSuccess(notificationPane, "Leave request approved successfully.");
                 refreshLeaveRequestList();
                 clearForm();
                 leaveRequestTable.getSelectionModel().clearSelection();
             } else {
-                showAlert("Failed to approve the leave request.", NotificationSystem.Type.ERROR, 3);
+                NotificationSystem.showError(notificationPane, "Failed to approve the leave request.");
             }
         } catch (Exception e) {
-            showAlert("An error occurred during approval: " + e.getMessage(), NotificationSystem.Type.ERROR, 3);
+            NotificationSystem.showError(notificationPane, "An error occurred during approval: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -352,12 +351,12 @@ public class LeaveGUI extends LeaveController implements Initializable {
     @FXML
     public void handleRejectLeaveRequest() {
         if (selectedLeaveRequest == null) {
-            showAlert("Please select a leave request to reject.", NotificationSystem.Type.WARNING, 3);
+            NotificationSystem.showWarning(notificationPane, "Please select a leave request to reject.");
             return;
         }
 
         if (selectedLeaveRequest.getStatus() != LeaveRequest.LeaveStatus.PENDING) {
-            showAlert("Only PENDING requests can be rejected.", NotificationSystem.Type.WARNING, 3);
+            NotificationSystem.showWarning(notificationPane, "Only PENDING requests can be rejected.");
             return;
         }
 
@@ -387,15 +386,15 @@ public class LeaveGUI extends LeaveController implements Initializable {
             boolean success = leaveController.rejectLeaveRequest(selectedLeaveRequest.getId(), comments);
 
             if (success) {
-                showAlert("Leave request rejected successfully.", NotificationSystem.Type.SUCCESS, 3);
+                NotificationSystem.showSuccess(notificationPane, "Leave request rejected successfully.");
                 refreshLeaveRequestList();
                 clearForm();
                 leaveRequestTable.getSelectionModel().clearSelection();
             } else {
-                showAlert("Failed to reject the leave request.", NotificationSystem.Type.ERROR, 3);
+                NotificationSystem.showError(notificationPane, "Failed to reject the leave request.");
             }
         } catch (Exception e) {
-            showAlert("An error occurred during rejection: " + e.getMessage(), NotificationSystem.Type.ERROR, 3);
+            NotificationSystem.showError(notificationPane, "An error occurred during rejection: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -412,7 +411,7 @@ public class LeaveGUI extends LeaveController implements Initializable {
             leaveRequestList.setAll(leaveRequests);
             leaveRequestTable.setItems(leaveRequestList);
         } catch (Exception e) {
-            showAlert("Failed to load leave requests: " + e.getMessage(), NotificationSystem.Type.ERROR, 3);
+            NotificationSystem.showError(notificationPane, "Failed to load leave requests: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -470,34 +469,41 @@ public class LeaveGUI extends LeaveController implements Initializable {
 
         // Validate employee selection
         if (employeeComboBox.getValue() == null) {
-            errorMessage.append("Please select an employee.\n");
+            NotificationSystem.showError(notificationPane, "Please select an employee.");
+            return false;
         }
 
         // Validate date selection
         if (startDatePicker.getValue() == null) {
-            errorMessage.append("Please select a start date.\n");
+            NotificationSystem.showError(notificationPane, "Please select a start date.");
+            return false;
         }
 
         if (endDatePicker.getValue() == null) {
-            errorMessage.append("Please select an end date.\n");
+            NotificationSystem.showError(notificationPane, "Please select an end date.");
+            return false;
         } else if (startDatePicker.getValue() != null) {
             if (endDatePicker.getValue().isBefore(startDatePicker.getValue())) {
-                errorMessage.append("End date cannot be before start date.\n");
+                NotificationSystem.showError(notificationPane, "End date cannot be before start date.");
+                return false;
             }
         }
 
         // Check if dates are in the past
         LocalDate today = LocalDate.now();
         if (startDatePicker.getValue() != null && startDatePicker.getValue().isBefore(today)) {
-            errorMessage.append("Start date cannot be in the past.\n");
+            NotificationSystem.showError(notificationPane, "Start date cannot be in the past.");
+            return false;
         }
 
         // Validate reason text
         String reason = reasonArea.getText().trim();
         if (reason.isEmpty()) {
-            errorMessage.append("Please provide a reason for the leave request.\n");
+            NotificationSystem.showError(notificationPane, "Please provide a reason for the leave request.");
+            return false;
         } else if (reason.length() < 5) {
-            errorMessage.append("Reason should be more descriptive (at least 5 characters).\n");
+            NotificationSystem.showError(notificationPane, "Reason should be more descriptive (at least 5 characters).");
+            return false;
         }
 
         // If checking against available days, validate the number of days requested
@@ -529,11 +535,6 @@ public class LeaveGUI extends LeaveController implements Initializable {
                 System.err.println("Error checking available days: " + e.getMessage());
                 e.printStackTrace();
             }
-        }
-
-        if (errorMessage.length() > 0) {
-            showAlert(errorMessage.toString(), NotificationSystem.Type.ERROR, 3);
-            return false;
         }
 
         return true;
