@@ -9,6 +9,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.StackPane;
 import javafx.util.StringConverter;
 
 import java.net.URL;
@@ -60,6 +61,9 @@ public class EmployeeGUI implements Initializable {
 
     // Reference to the currently selected employee in the table
     private Employee selectedEmployee;
+
+    // Add StackPane for notifications
+    @FXML private StackPane notificationPane;
 
     @Override
     public void initialize(URL url, ResourceBundle rb) {
@@ -178,14 +182,14 @@ public class EmployeeGUI implements Initializable {
             boolean success = employeeController.addEmployee(employee);
 
             if (success) {
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Employee added successfully.");
+                showNotification(NotificationSystem.Type.SUCCESS, "Employee added successfully.");
                 clearForm();
                 refreshEmployeeList();
             } else {
-                showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to add employee. Possible duplicate ID/Email or database issue.");
+                showNotification(NotificationSystem.Type.ERROR, "Failed to add employee. Possible duplicate ID/Email or database issue.");
             }
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Application Error", "An unexpected error occurred: " + e.getMessage());
+            showNotification(NotificationSystem.Type.ERROR, "An unexpected error occurred: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -193,7 +197,7 @@ public class EmployeeGUI implements Initializable {
     @FXML
     public void handleUpdateEmployee() {
         if (selectedEmployee == null) {
-            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an employee to update.");
+            showNotification(NotificationSystem.Type.WARNING, "Please select an employee to update.");
             return;
         }
         
@@ -204,16 +208,15 @@ public class EmployeeGUI implements Initializable {
         try {
             updateEmployeeFromFields(selectedEmployee);
             boolean success = employeeController.updateEmployee(selectedEmployee);
-
+            
             if (success) {
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Employee updated successfully.");
-                clearForm();
+                showNotification(NotificationSystem.Type.SUCCESS, "Employee updated successfully.");
                 refreshEmployeeList();
             } else {
-                showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to update employee. Possible duplicate email or database issue.");
+                showNotification(NotificationSystem.Type.ERROR, "Failed to update employee. Database error occurred.");
             }
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Application Error", "An unexpected error occurred during update: " + e.getMessage());
+            showNotification(NotificationSystem.Type.ERROR, "An unexpected error occurred: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -221,31 +224,31 @@ public class EmployeeGUI implements Initializable {
     @FXML
     public void handleDeleteEmployee() {
         if (selectedEmployee == null) {
-            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an employee to delete.");
+            showNotification(NotificationSystem.Type.WARNING, "Please select an employee to delete.");
             return;
         }
 
-        // Confirm deletion
-        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmAlert.setTitle("Confirm Deletion");
-        confirmAlert.setHeaderText("Delete Employee");
-        confirmAlert.setContentText("Are you sure you want to delete " + selectedEmployee.getFirstName() + " " + selectedEmployee.getLastName() + "?");
+        // Custom confirmation dialog
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Confirm Deletion");
+        dialog.setHeaderText("Delete Employee");
+        dialog.setContentText("Are you sure you want to delete " + 
+                              selectedEmployee.getFirstName() + " " + 
+                              selectedEmployee.getLastName() + "?");
         
-        confirmAlert.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
-                try {
-                    boolean success = employeeController.deleteEmployee(selectedEmployee.getId());
-
-                    if (success) {
-                        showAlert(Alert.AlertType.INFORMATION, "Success", "Employee deleted successfully.");
-                        clearForm();
-                        refreshEmployeeList();
-                    } else {
-                        showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to delete employee. Employee might not exist or database error occurred.");
-                    }
-                } catch (Exception e) {
-                    showAlert(Alert.AlertType.ERROR, "Application Error", "An unexpected error occurred during deletion: " + e.getMessage());
-                    e.printStackTrace();
+        ButtonType deleteButton = new ButtonType("Delete", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(deleteButton, cancelButton);
+        
+        dialog.showAndWait().ifPresent(buttonType -> {
+            if (buttonType == deleteButton) {
+                boolean success = employeeController.deleteEmployee(selectedEmployee.getId());
+                if (success) {
+                    showNotification(NotificationSystem.Type.SUCCESS, "Employee deleted successfully.");
+                    clearForm();
+                    refreshEmployeeList();
+                } else {
+                    showNotification(NotificationSystem.Type.ERROR, "Failed to delete employee. Database error occurred.");
                 }
             }
         });
@@ -266,7 +269,7 @@ public class EmployeeGUI implements Initializable {
             List<Employee> results = employeeController.searchEmployees(searchTerm);
             employeeList.setAll(results);
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Search Error", "An error occurred during search: " + e.getMessage());
+            showNotification(NotificationSystem.Type.ERROR, "An error occurred during search: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -279,7 +282,7 @@ public class EmployeeGUI implements Initializable {
             });
         } catch (Exception e) {
             Platform.runLater(() -> {
-                showAlert(Alert.AlertType.ERROR, "Load Error", "Failed to load employee data: " + e.getMessage());
+                showNotification(NotificationSystem.Type.ERROR, "Failed to load employee data: " + e.getMessage());
                 employeeList.clear();
             });
             e.printStackTrace();
@@ -340,69 +343,65 @@ public class EmployeeGUI implements Initializable {
     private boolean validateInputs() {
         StringBuilder errorMessage = new StringBuilder();
 
-        // --- Field Validations ---
         if (firstNameField.getText() == null || firstNameField.getText().trim().isEmpty()) {
-            errorMessage.append("First name is required.\n");
+            errorMessage.append("First name cannot be empty.\n");
         }
+
         if (lastNameField.getText() == null || lastNameField.getText().trim().isEmpty()) {
-            errorMessage.append("Last name is required.\n");
+            errorMessage.append("Last name cannot be empty.\n");
         }
-        // Basic email format check
-        String email = emailField.getText();
-        if (email == null || email.trim().isEmpty()) {
-            errorMessage.append("Email is required.\n");
-        } else if (!email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$")) {
-            errorMessage.append("Invalid email format.\n");
+
+        if (emailField.getText() == null || emailField.getText().trim().isEmpty()) {
+            errorMessage.append("Email cannot be empty.\n");
+        } else if (!emailField.getText().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            errorMessage.append("Email must be in a valid format.\n");
         }
-        // Basic phone check
-        String phone = phoneField.getText();
-        if (phone == null || phone.trim().isEmpty()) {
-            errorMessage.append("Phone number is required.\n");
-        } else if (!phone.matches("^[\\d\\s()+-]*$")) {
-            errorMessage.append("Invalid phone number format (only digits, spaces, +, -, () allowed).\n");
+
+        if (phoneField.getText() == null || phoneField.getText().trim().isEmpty()) {
+            errorMessage.append("Phone cannot be empty.\n");
         }
 
         if (hireDatePicker.getValue() == null) {
-            errorMessage.append("Hire date is required.\n");
-        } else if (hireDatePicker.getValue().isAfter(LocalDate.now())) {
-            errorMessage.append("Hire date cannot be in the future.\n");
+            errorMessage.append("Hire date must be selected.\n");
         }
 
         if (departmentField.getText() == null || departmentField.getText().trim().isEmpty()) {
-            errorMessage.append("Department is required.\n");
+            errorMessage.append("Department cannot be empty.\n");
         }
+
         if (jobTitleField.getText() == null || jobTitleField.getText().trim().isEmpty()) {
-            errorMessage.append("Job title is required.\n");
+            errorMessage.append("Job title cannot be empty.\n");
         }
-        // Salary validation
-        String salaryStr = salaryField.getText();
-        if (salaryStr == null || salaryStr.trim().isEmpty()) {
-            errorMessage.append("Salary is required.\n");
+
+        if (salaryField.getText() == null || salaryField.getText().trim().isEmpty()) {
+            errorMessage.append("Salary cannot be empty.\n");
         } else {
             try {
-                double salary = Double.parseDouble(salaryStr.trim());
-                if (salary <= 0) {
-                    errorMessage.append("Salary must be a positive number.\n");
+                double salary = Double.parseDouble(salaryField.getText());
+                if (salary < 0) {
+                    errorMessage.append("Salary cannot be negative.\n");
                 }
             } catch (NumberFormatException e) {
-                errorMessage.append("Salary must be a valid number (e.g., 50000.00).\n");
+                errorMessage.append("Salary must be a valid number.\n");
             }
         }
 
         if (errorMessage.length() > 0) {
-            showAlert(Alert.AlertType.ERROR, "Validation Error", errorMessage.toString());
+            showNotification(NotificationSystem.Type.ERROR, errorMessage.toString());
             return false;
         }
 
         return true;
     }
 
-    private void showAlert(Alert.AlertType alertType, String title, String content) {
-        Alert alert = new Alert(alertType);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+    // Replace the old showAlert method with this notification method
+    private void showNotification(NotificationSystem.Type type, String message) {
+        if (notificationPane != null) {
+            NotificationSystem.showNotification(notificationPane, message, type, 3);
+        } else {
+            // Fallback to console if notification pane not available
+            System.out.println(type + ": " + message);
+        }
     }
 
     // Called when the app shuts down

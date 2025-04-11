@@ -17,6 +17,7 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.util.StringConverter;
 import javafx.application.Platform;
+import javafx.scene.layout.StackPane;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -74,6 +75,9 @@ public class PerformanceGUI implements Initializable {
     private ObservableList<Employee> employeeList = FXCollections.observableArrayList();
     private PerformanceEvaluation selectedEvaluation;
     private User currentUser;
+    
+    // Add StackPane for notifications
+    @FXML private StackPane notificationPane;
     
     @Override
     public void initialize(URL url, ResourceBundle rb) {
@@ -214,7 +218,7 @@ public class PerformanceGUI implements Initializable {
         try {
             Employee selectedEmployee = employeeComboBox.getValue();
             if (selectedEmployee == null) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Please select an employee.");
+                showNotification(NotificationSystem.Type.ERROR, "Please select an employee.");
                 return;
             }
             
@@ -235,14 +239,14 @@ public class PerformanceGUI implements Initializable {
             );
             
             if (success) {
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Performance evaluation added successfully.");
+                showNotification(NotificationSystem.Type.SUCCESS, "Performance evaluation added successfully.");
                 clearForm();
                 refreshEvaluationList();
             } else {
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to add performance evaluation.");
+                showNotification(NotificationSystem.Type.ERROR, "Failed to add performance evaluation.");
             }
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Error", "An error occurred while adding the evaluation: " + e.getMessage());
+            showNotification(NotificationSystem.Type.ERROR, "An error occurred while adding the evaluation: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -250,7 +254,7 @@ public class PerformanceGUI implements Initializable {
     @FXML
     private void handleUpdateEvaluation() {
         if (selectedEvaluation == null) {
-            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an evaluation to update.");
+            showNotification(NotificationSystem.Type.WARNING, "Please select an evaluation to update.");
             return;
         }
         
@@ -261,7 +265,7 @@ public class PerformanceGUI implements Initializable {
         try {
             Employee selectedEmployee = employeeComboBox.getValue();
             if (selectedEmployee == null) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Please select an employee.");
+                showNotification(NotificationSystem.Type.ERROR, "Please select an employee.");
                 return;
             }
             
@@ -283,15 +287,15 @@ public class PerformanceGUI implements Initializable {
             );
             
             if (success) {
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Performance evaluation updated successfully.");
+                showNotification(NotificationSystem.Type.SUCCESS, "Performance evaluation updated successfully.");
                 clearForm();
                 refreshEvaluationList();
                 evaluationTable.getSelectionModel().clearSelection();
             } else {
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to update performance evaluation.");
+                showNotification(NotificationSystem.Type.ERROR, "Failed to update performance evaluation.");
             }
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Error", "An error occurred while updating the evaluation: " + e.getMessage());
+            showNotification(NotificationSystem.Type.ERROR, "An error occurred while updating the evaluation: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -299,33 +303,40 @@ public class PerformanceGUI implements Initializable {
     @FXML
     private void handleDeleteEvaluation() {
         if (selectedEvaluation == null) {
-            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an evaluation to delete.");
+            showNotification(NotificationSystem.Type.WARNING, "Please select an evaluation to delete.");
             return;
         }
         
-        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmAlert.setTitle("Confirm Deletion");
-        confirmAlert.setHeaderText("Delete Performance Evaluation");
-        confirmAlert.setContentText("Are you sure you want to delete this performance evaluation?");
+        // Custom confirmation dialog
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Confirm Deletion");
+        dialog.setHeaderText("Delete Performance Evaluation");
+        dialog.setContentText("Are you sure you want to delete this performance evaluation?");
         
-        if (confirmAlert.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
-            try {
-                // Use controller to delete evaluation
-                boolean success = performanceController.deleteEvaluation(selectedEvaluation.getId());
-                
-                if (success) {
-                    showAlert(Alert.AlertType.INFORMATION, "Success", "Performance evaluation deleted successfully.");
-                    clearForm();
-                    refreshEvaluationList();
-                    evaluationTable.getSelectionModel().clearSelection();
-                } else {
-                    showAlert(Alert.AlertType.ERROR, "Error", "Failed to delete performance evaluation.");
+        ButtonType deleteButton = new ButtonType("Delete", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dialog.getDialogPane().getButtonTypes().addAll(deleteButton, cancelButton);
+        
+        dialog.showAndWait().ifPresent(buttonType -> {
+            if (buttonType == deleteButton) {
+                try {
+                    // Use controller to delete evaluation
+                    boolean success = performanceController.deleteEvaluation(selectedEvaluation.getId());
+                    
+                    if (success) {
+                        showNotification(NotificationSystem.Type.SUCCESS, "Performance evaluation deleted successfully.");
+                        clearForm();
+                        refreshEvaluationList();
+                        evaluationTable.getSelectionModel().clearSelection();
+                    } else {
+                        showNotification(NotificationSystem.Type.ERROR, "Failed to delete performance evaluation.");
+                    }
+                } catch (Exception e) {
+                    showNotification(NotificationSystem.Type.ERROR, "An error occurred while deleting the evaluation: " + e.getMessage());
+                    e.printStackTrace();
                 }
-            } catch (Exception e) {
-                showAlert(Alert.AlertType.ERROR, "Error", "An error occurred while deleting the evaluation: " + e.getMessage());
-                e.printStackTrace();
             }
-        }
+        });
     }
     
     @FXML
@@ -384,19 +395,21 @@ public class PerformanceGUI implements Initializable {
         }
         
         if (errorMessage.length() > 0) {
-            showAlert(Alert.AlertType.ERROR, "Validation Error", errorMessage.toString());
+            showNotification(NotificationSystem.Type.ERROR, errorMessage.toString());
             return false;
         }
         
         return true;
     }
     
-    private void showAlert(Alert.AlertType alertType, String title, String content) {
-        Alert alert = new Alert(alertType);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+    // Replace the old showAlert method with this notification method
+    private void showNotification(NotificationSystem.Type type, String message) {
+        if (notificationPane != null) {
+            NotificationSystem.showNotification(notificationPane, message, type, 3);
+        } else {
+            // Fallback to console if notification pane not available
+            System.out.println(type + ": " + message);
+        }
     }
     
     /**
@@ -409,8 +422,7 @@ public class PerformanceGUI implements Initializable {
         eventManager.addEventHandler(EmployeeEvent.EMPLOYEE_ADDED, event -> {
             Platform.runLater(() -> {
                 loadEmployees();
-                showAlert(Alert.AlertType.INFORMATION, "New Employee", 
-                    "New employee added: " + event.getEmployee().getFullName());
+
             });
         });
         
