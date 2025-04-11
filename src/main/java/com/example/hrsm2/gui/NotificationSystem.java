@@ -59,16 +59,11 @@ public class NotificationSystem {
         StackPane.setMargin(notification, new javafx.geometry.Insets(0, 0, 20, 0));
         
         // Start with zero opacity (invisible)
-        notification.setOpacity(0);
+        notification.setOpacity(1);
         
         // Add to the container
         container.getChildren().add(notification);
-        
-        // Create fade-in animation
-        Timeline fadeIn = new Timeline(
-            new KeyFrame(Duration.ZERO, new KeyValue(notification.opacityProperty(), 0)),
-            new KeyFrame(Duration.seconds(0.3), new KeyValue(notification.opacityProperty(), 1))
-        );
+
         
         // Create fade-out animation
         Timeline fadeOut = new Timeline(
@@ -79,7 +74,6 @@ public class NotificationSystem {
         );
         
         // Play the animations
-        fadeIn.play();
         fadeOut.play();
     }
     
@@ -87,27 +81,21 @@ public class NotificationSystem {
      * Shows a success notification with default duration.
      */
     public static void showSuccess(StackPane container, String message) {
-        showNotification(container, message, Type.SUCCESS, 3);
+        showNotification(container, message, Type.SUCCESS, 2);
     }
     
     /**
      * Shows an error notification with default duration.
      */
     public static void showError(StackPane container, String message) {
-        showNotification(container, message, Type.ERROR, 4);
+        showNotification(container, message, Type.ERROR, 3);
     }
     
     /**
      * Shows a warning notification with default duration.
      */
     public static void showWarning(StackPane container, String message) {
-        showNotification(container, message, Type.WARNING, 3);
+        showNotification(container, message, Type.WARNING, 2);
     }
-    
-    /**
-     * Shows an info notification with default duration.
-     */
-    public static void showInfo(StackPane container, String message) {
-        showNotification(container, message, Type.INFO, 3);
-    }
+
 }

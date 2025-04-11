@@ -405,7 +405,7 @@ public class PerformanceGUI implements Initializable {
     // Replace the old showAlert method with this notification method
     private void showNotification(NotificationSystem.Type type, String message) {
         if (notificationPane != null) {
-            NotificationSystem.showNotification(notificationPane, message, type, 4);
+            NotificationSystem.showNotification(notificationPane, message, type, 3);
         } else {
             // Fallback to console if notification pane not available
             System.out.println(type + ": " + message);
