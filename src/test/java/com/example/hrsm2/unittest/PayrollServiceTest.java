@@ -28,11 +28,6 @@ public class PayrollServiceTest {
 
     }
 
-    @AfterEach
-    void tearDown() {
-
-    }
-
     @Test
     @Order(1)
     @DisplayName("1. Get PayrollService instance")
@@ -187,13 +182,8 @@ public class PayrollServiceTest {
     @Order(9)
     @DisplayName("9. Generate payrolls for all employees")
     void testGeneratePayrollsForAllEmployees() {
-        //List<Payroll> generated = operation.generatePayrollsForAllEmployees(
-            //    LocalDate.now(), LocalDate.now().plusDays(30));
 
-        //assertNotNull(generated);
         assertNotNull(operation.getAllPayrolls());
-        //assertTrue(generated.size() > 0); // if employees exist, it should generate
-
     }
 
     @ParameterizedTest

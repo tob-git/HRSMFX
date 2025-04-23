@@ -42,16 +42,6 @@ void getInstance() {
 void addEmployee(String ID, String FirstName, String LastName, String Email, String Phone, String Department, double Salary) {
     Employee employee = new Employee(ID,FirstName,LastName, Email, Phone,
             LocalDate.of(2023, 11, 15), Department, Department, Salary);
-//        employee.setId(ID);
-//        employee.setFirstName(FirstName);
-//        employee.setLastName(LastName);
-//        employee.setEmail(Email);
-//        employee.setPhone(Phone);
-//        employee.setDepartment(Department);
-//        employee.setSalary(Salary);
-
-    //boolean added = operation.addEmployee(employee);
-    //testEmployeeId = employee.getId(); // Save ID for future tests
 
     assertTrue(operation.addEmployee(employee), "Employee should be added successfully");
     assertEquals(employee.getId(),ID, "Employee ID should match");
@@ -80,7 +70,9 @@ void getEmployeeById(String ID, String FirstName, String LastName, String Email,
     Employee fetched = operation.getEmployeeById(ID);
 
     assertNotNull(fetched, "Employee should be found by ID");
-    assertEquals(FirstName+LastName+Email+Phone+Department+Salary, fetched.getFirstName()+fetched.getLastName()+fetched.getEmail()+fetched.getPhone()+fetched.getDepartment()+fetched.getSalary(), "Employee name should match");   //////// recheck + sign
+    assertEquals(FirstName+LastName+Email+Phone+Department+Salary,
+            fetched.getFirstName()+fetched.getLastName()+fetched.getEmail()+fetched.getPhone()+fetched.getDepartment()+fetched.getSalary(),
+            "Employee name should match");   //////// recheck + sign
 }
 
 @ParameterizedTest
@@ -99,7 +91,7 @@ void updateEmployee(String ID) {
    assertFalse(operation.updateEmployee(employee), "Employee should not be updated");
 }
 
-//        /*
+
 @ParameterizedTest
 @Order(6)
 @DisplayName("6. Search Employees Test")
@@ -120,7 +112,7 @@ void searchEmployees(String ID, String FirstName, String LastName, String Email,
     assertTrue(results.contains(employee), "Search should return the test employee");
 
 }
-//*/
+
 
 @ParameterizedTest
 @Order(7)

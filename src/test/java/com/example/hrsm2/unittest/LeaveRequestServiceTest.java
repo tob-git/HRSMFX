@@ -19,12 +19,10 @@ class LeaveRequestServiceTest {
 
     private LeaveRequestService operation;
     private LeaveRequest Request;
-    //private EmployeeService employeeService;
 
     @BeforeEach
     void setup() {
         operation = LeaveRequestService.getInstance();
-        //employeeService= EmployeeService.getInstance();
     }
 
 
@@ -47,7 +45,8 @@ class LeaveRequestServiceTest {
             "EMP004"
     })
     void submitLeaveRequest(String employeeId) {
-        Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(200), LocalDate.now().plusDays(201), "Vacation");
+        Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(200),
+                LocalDate.now().plusDays(201), "Vacation");
 
         assertTrue(operation.submitLeaveRequest(Request));
         assertNotNull(Request);
@@ -74,7 +73,9 @@ class LeaveRequestServiceTest {
             "EMP004"
     })
     void getLeaveRequestById(String employeeId) {
-        Request = new LeaveRequest(employeeId, LocalDate.now().minusWeeks(5), LocalDate.now().minusWeeks(4), "Vacation");
+        Request = new LeaveRequest(employeeId, LocalDate.now().minusWeeks(5),
+                LocalDate.now().minusWeeks(4), "Vacation");
+
         operation.submitLeaveRequest(Request);
         LeaveRequest result = operation.getLeaveRequestById(Request.getId());
 
@@ -96,7 +97,10 @@ class LeaveRequestServiceTest {
     void getLeaveRequestsForEmployee(String employeeId) {
         Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(5), LocalDate.now().plusDays(6), "Vacation");
         operation.submitLeaveRequest(Request);
-        LeaveRequest New_Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(15), LocalDate.now().plusDays(19), "Doctor");
+
+        LeaveRequest New_Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(15),
+                LocalDate.now().plusDays(19), "Doctor");
+
         operation.submitLeaveRequest(New_Request);
         List<LeaveRequest> requests = operation.getLeaveRequestsForEmployee(employeeId);
 
@@ -117,16 +121,17 @@ class LeaveRequestServiceTest {
             "EMP004"
     })
     void testSubmitLeaveRequestsWithConflictingDates(String employeeId) {
-        Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(20), LocalDate.now().plusDays(24), "Vacation");
+        Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(20),
+                LocalDate.now().plusDays(24), "Vacation");
         operation.submitLeaveRequest(Request);
-        LeaveRequest New_Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(20), LocalDate.now().plusDays(24), "Doctor");
+        LeaveRequest New_Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(20),
+                LocalDate.now().plusDays(24), "Doctor");
         operation.submitLeaveRequest(New_Request);
 
         assertFalse(operation.submitLeaveRequest(New_Request));
         assertNull(New_Request.getId());
 
         operation.deleteLeaveRequest(Request.getId());
-        //operation.deleteLeaveRequest(New_Request.getId());
     }
 
     @ParameterizedTest
@@ -139,7 +144,8 @@ class LeaveRequestServiceTest {
             "EMP004"
     })
     void approveLeaveRequest(String employeeId) {
-        Request = new LeaveRequest(employeeId, LocalDate.now().plusWeeks(8), LocalDate.now().plusWeeks(9), "Vacation");
+        Request = new LeaveRequest(employeeId, LocalDate.now().plusWeeks(8),
+                LocalDate.now().plusWeeks(9), "Vacation");
         operation.submitLeaveRequest(Request);
         boolean success = operation.approveLeaveRequest(Request.getId(), "Enjoy your time");
         LeaveRequest updated = operation.getLeaveRequestById(Request.getId());
@@ -160,8 +166,10 @@ class LeaveRequestServiceTest {
             "EMP004"
     })
     void getApprovedLeaveDaysForEmployee(String employeeId) {
-        Request = new LeaveRequest(employeeId, LocalDate.now().plusWeeks(8), LocalDate.now().plusWeeks(9), "Vacation");
-        LeaveRequest New_Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(20), LocalDate.now().plusDays(24), "Doctor");
+        Request = new LeaveRequest(employeeId, LocalDate.now().plusWeeks(8),
+                LocalDate.now().plusWeeks(9), "Vacation");
+        LeaveRequest New_Request = new LeaveRequest(employeeId, LocalDate.now().plusDays(20),
+                LocalDate.now().plusDays(24), "Doctor");
 
         operation.submitLeaveRequest(Request);
         operation.submitLeaveRequest(New_Request);
@@ -186,7 +194,8 @@ class LeaveRequestServiceTest {
             "EMP004"
     })
     void updateLeaveRequest(String employeeId) {
-        Request = new LeaveRequest(employeeId, LocalDate.now().minusDays(4), LocalDate.now().minusDays(1), "Vacation");
+        Request = new LeaveRequest(employeeId, LocalDate.now().minusDays(4),
+                LocalDate.now().minusDays(1), "Vacation");
         operation.submitLeaveRequest(Request);
         Request.setManagerComments("Updated comment");
 
@@ -206,7 +215,8 @@ class LeaveRequestServiceTest {
             "EMP004"
     })
     void rejectLeaveRequest(String employeeId) {
-        Request = new LeaveRequest(employeeId, LocalDate.now().minusDays(10), LocalDate.now().minusDays(6), "Vacation");
+        Request = new LeaveRequest(employeeId, LocalDate.now().minusDays(10),
+                LocalDate.now().minusDays(6), "Vacation");
         operation.submitLeaveRequest(Request);
         boolean success = operation.rejectLeaveRequest(Request.getId(), "Enough Vacations");
 
@@ -226,7 +236,8 @@ class LeaveRequestServiceTest {
             "EMP004"
     })
     void RejectAnApprovedLeaveRequest(String employeeId) {
-        Request = new LeaveRequest(employeeId, LocalDate.now().plusWeeks(20), LocalDate.now().plusWeeks(21), "Vacation");
+        Request = new LeaveRequest(employeeId, LocalDate.now().plusWeeks(20),
+                LocalDate.now().plusWeeks(21), "Vacation");
         operation.submitLeaveRequest(Request);
         boolean success = operation.approveLeaveRequest(Request.getId(), "Enjoy your time");
         LeaveRequest updated = operation.getLeaveRequestById(Request.getId());
@@ -246,14 +257,13 @@ class LeaveRequestServiceTest {
     @Order(12)
     @DisplayName("12. Delete leave request")
     void deleteLeaveRequest() {
-        Request = new LeaveRequest("E010", LocalDate.now().plusDays(1), LocalDate.now().plusDays(4), "Vacation");
+        Request = new LeaveRequest("E010", LocalDate.now().plusDays(1),
+                LocalDate.now().plusDays(4), "Vacation");
         operation.submitLeaveRequest(Request);
         boolean success = operation.deleteLeaveRequest(Request.getId());
         assertTrue(success);
         LeaveRequest deleted = operation.getLeaveRequestById(Request.getId());
         assertNull(deleted);
-
-
     }
 
 }

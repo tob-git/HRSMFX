@@ -23,12 +23,6 @@ class PerformanceEvaluationServiceTest {
         operation = PerformanceEvaluationService.getInstance(); // Get singleton instance
     }
 
-    @AfterEach
-    void tearDown() {
-        // Clean up if needed (e.g., reset the list of evaluations)
-
-    }
-
     @Test
     @Order(1)
     @DisplayName("1. Should return same instance for a singleton")
@@ -49,9 +43,11 @@ class PerformanceEvaluationServiceTest {
             "emp5,5, Strengths5, Improvement5, Excellent, Manager",
             "emp6,3, Strengths6, Improvement6, Good, Manager"
     })
-    void addEvaluation(String emp, int performanceRating, String strengths, String areasForImprovement, String comments, String reviewedBy) {
+    void addEvaluation(String emp, int performanceRating, String strengths, String areasForImprovement,
+                       String comments, String reviewedBy) {
         // Create an evaluation
-        PerformanceEvaluation eval = new PerformanceEvaluation(emp, performanceRating, strengths, areasForImprovement, comments, reviewedBy);
+        PerformanceEvaluation eval = new PerformanceEvaluation(emp, performanceRating, strengths, areasForImprovement,
+                comments, reviewedBy);
 
         // Add the evaluation
         operation.addEvaluation(eval);
@@ -73,7 +69,7 @@ class PerformanceEvaluationServiceTest {
 
         // Validate the list size and content
         assertNotNull(evaluations, "Evaluations list should not be null.");
-        assertTrue(evaluations.size() > 0, "There should be at least 1 evaluation."); // di el mafrood tefdal zy maheya keda mafish ta8iir.
+        assertTrue(evaluations.size() > 0, "There should be at least 1 evaluation.");
     }
 
     @ParameterizedTest
@@ -86,9 +82,11 @@ class PerformanceEvaluationServiceTest {
             "emp4,4, Strengths4, Improvement4, Good, Manager",
             "emp5,5, Strengths5, Improvement5, Excellent, Manager"
     })
-    void getEvaluationById(String emp, int performanceRating, String strengths, String areasForImprovement, String comments, String reviewedBy) {
+    void getEvaluationById(String emp, int performanceRating, String strengths, String areasForImprovement,
+                           String comments, String reviewedBy) {
         // Create and add an evaluation
-        PerformanceEvaluation eval = new PerformanceEvaluation(emp, performanceRating, strengths, areasForImprovement, comments, reviewedBy);
+        PerformanceEvaluation eval = new PerformanceEvaluation(emp, performanceRating, strengths, areasForImprovement,
+                comments, reviewedBy);
         operation.addEvaluation(eval);
 
         // Retrieve the evaluation by ID
@@ -113,8 +111,10 @@ class PerformanceEvaluationServiceTest {
     })
     void getEvaluationsByEmployeeId(String employeeId) {
         // Create and add some evaluations
-        PerformanceEvaluation eval1 = new PerformanceEvaluation(employeeId, 4, "Strengths", "Improvement", "Good", "Manager");
-        PerformanceEvaluation eval2 = new PerformanceEvaluation(employeeId, 5, "Strengths", "Improvement", "Excellent", "Manager");
+        PerformanceEvaluation eval1 = new PerformanceEvaluation(employeeId, 4,
+                "Strengths", "Improvement", "Good", "Manager");
+        PerformanceEvaluation eval2 = new PerformanceEvaluation(employeeId, 5,
+                "Strengths", "Improvement", "Excellent", "Manager");
         operation.addEvaluation(eval1);
         operation.addEvaluation(eval2);
 
@@ -139,9 +139,11 @@ class PerformanceEvaluationServiceTest {
             "emp4,3, Strengths4, Improvement4, Good, Manager",
             "emp5,2, Strengths5, Improvement5, Excellent, Manager"
     })
-    void updateEvaluation(String emp, int performanceRating, String strengths, String areasForImprovement, String comments, String reviewedBy) {
+    void updateEvaluation(String emp, int performanceRating, String strengths, String areasForImprovement,
+                          String comments, String reviewedBy) {
         // Create and add an evaluation
-        PerformanceEvaluation eval = new PerformanceEvaluation(emp, performanceRating, strengths, areasForImprovement, comments, reviewedBy);
+        PerformanceEvaluation eval = new PerformanceEvaluation(emp, performanceRating, strengths, areasForImprovement,
+                comments, reviewedBy);
         operation.addEvaluation(eval);
 
         // Update the evaluation
@@ -165,10 +167,13 @@ class PerformanceEvaluationServiceTest {
             "emp4,3, Strengths4, Improvement4, Good, Manager",
             "emp5,2, Strengths5, Improvement5, Excellent, Manager"
     })
-    void getAverageRatingForEmployee(String emp, int performanceRating, String strengths, String areasForImprovement, String comments, String reviewedBy) {
+    void getAverageRatingForEmployee(String emp, int performanceRating, String strengths, String areasForImprovement,
+                                     String comments, String reviewedBy) {
         // Create and add evaluations
-        PerformanceEvaluation eval1 = new PerformanceEvaluation(emp, (performanceRating * 8) % 5, strengths, areasForImprovement, comments, reviewedBy);
-        PerformanceEvaluation eval2 = new PerformanceEvaluation(emp, (performanceRating * 3 + 1) % 5, strengths, areasForImprovement, comments, reviewedBy);
+        PerformanceEvaluation eval1 = new PerformanceEvaluation(emp, (performanceRating * 8) % 5,
+                strengths, areasForImprovement, comments, reviewedBy);
+        PerformanceEvaluation eval2 = new PerformanceEvaluation(emp, (performanceRating * 3 + 1) % 5,
+                strengths, areasForImprovement, comments, reviewedBy);
         operation.addEvaluation(eval1);
         operation.addEvaluation(eval2);
 
@@ -187,9 +192,11 @@ class PerformanceEvaluationServiceTest {
     @DisplayName("8. Should get evaluations by date range")
     void getEvaluationsByDateRange() {
         // Create and add evaluations with different dates
-        PerformanceEvaluation eval1 = new PerformanceEvaluation("emp7", 4, "Strengths", "Improvement", "Good", "Manager");
+        PerformanceEvaluation eval1 = new PerformanceEvaluation("emp7", 4,
+                "Strengths", "Improvement", "Good", "Manager");
         eval1.setEvaluationDate(LocalDate.of(2024, 1, 1));
-        PerformanceEvaluation eval2 = new PerformanceEvaluation("emp7", 5, "Strengths", "Improvement", "Excellent", "Manager");
+        PerformanceEvaluation eval2 = new PerformanceEvaluation("emp7", 5,
+                "Strengths", "Improvement", "Excellent", "Manager");
         eval2.setEvaluationDate(LocalDate.of(2023, 5, 1));
         operation.addEvaluation(eval1);
         operation.addEvaluation(eval2);
@@ -210,7 +217,8 @@ class PerformanceEvaluationServiceTest {
     @DisplayName("9. Should delete an evaluation")
     void deleteEvaluation() {
         // Create and add an evaluation
-        PerformanceEvaluation eval = new PerformanceEvaluation("emp5", 4, "Strengths", "Improvement", "Good", "Manager");
+        PerformanceEvaluation eval = new PerformanceEvaluation("emp5", 4,
+                "Strengths", "Improvement", "Good", "Manager");
         operation.addEvaluation(eval);
 
         // Delete the evaluation

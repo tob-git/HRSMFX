@@ -11,7 +11,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// Use test method ordering based on @Order annotations
+
 @TestMethodOrder(OrderAnnotation.class)
 class UserServiceTest {
 
@@ -36,7 +36,6 @@ class UserServiceTest {
         if (operation.getCurrentUser() != null) {
             operation.logout(); // Log out if the user is still logged in
         }
-
         // Remove the test user after ensuring logout
         operation.deleteUser(user.getUsername());
     }
@@ -163,6 +162,7 @@ class UserServiceTest {
         User current = operation.getCurrentUser();
         assertNotNull(current);
         assertEquals(username, current.getUsername());
+        operation.logout();
     }
 
     @ParameterizedTest
@@ -195,7 +195,8 @@ class UserServiceTest {
         operation.createUser(username, password, FullName, User.UserRole.HR_ADMIN);
 
         User existing = operation.getUserByUsername(username);
-        User updatedUser = new User(existing.getUsername(), existing.getPassword(), "Updated Name", User.UserRole.SUPER_ADMIN);
+        User updatedUser = new User(existing.getUsername(), existing.getPassword(), "Updated Name",
+                User.UserRole.SUPER_ADMIN);
 
         boolean updated = operation.updateUser(updatedUser);
         assertTrue(updated);
