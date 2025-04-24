@@ -363,8 +363,8 @@ public class PerformanceControllerWhiteBoxTest {
                 throw e.getCause(); // Unwrap the InvocationTargetException
             }
         });
-        
-        assertTrue(exception instanceof IllegalArgumentException);
+
+        assertInstanceOf(IllegalArgumentException.class, exception);
         assertTrue(exception.getMessage().contains("Employee is required"));
     }
     
@@ -386,8 +386,8 @@ public class PerformanceControllerWhiteBoxTest {
                 throw e.getCause(); // Unwrap the InvocationTargetException
             }
         });
-        
-        assertTrue(exception instanceof IllegalArgumentException);
+
+        assertInstanceOf(IllegalArgumentException.class, exception);
         assertTrue(exception.getMessage().contains("Strengths is required"));
     }
     @Test
@@ -478,6 +478,54 @@ public class PerformanceControllerWhiteBoxTest {
         // Assert
         assertFalse(result);
         verify(mockEvaluationService, never()).updateEvaluation(any());
+    }
+    @Test
+    @DisplayName("Test validateEvaluationData with blank employeeId (only spaces)")
+    void testValidateEvaluationDataWithBlankEmployeeId() throws Exception {
+        // Access the private method using reflection
+        Method validateMethod = getPrivateMethod("validateEvaluationData",
+                String.class, LocalDate.class, String.class, String.class);
+
+        // Pass employeeId as spaces to trigger employeeId.trim().isEmpty() == true
+        String blankEmployeeId = "   ";  // Spaces only
+
+        // Act & Assert
+        Exception exception = assertThrows(Exception.class, () -> {
+            try {
+                validateMethod.invoke(controller, blankEmployeeId, LocalDate.now(), "Strengths", "Improvements");
+            } catch (Exception e) {
+                throw e.getCause();  // Unwrap InvocationTargetException
+            }
+        });
+
+        // Verify
+        assertInstanceOf(IllegalArgumentException.class, exception);
+        assertTrue(exception.getMessage().contains("Employee is required"),
+                "Error message should mention that Employee is required");
+    }
+
+    @Test
+    @DisplayName("Test validateEvaluationData with null strengths ")
+    void testValidateEvaluationDataWithNullStrengths() throws Exception {
+        // Access the private method via reflection
+        Method validateMethod = getPrivateMethod("validateEvaluationData",
+                String.class, LocalDate.class, String.class, String.class);
+
+
+
+        // Act & Assert
+        Exception exception = assertThrows(Exception.class, () -> {
+            try {
+                validateMethod.invoke(controller, "emp123", LocalDate.now(), null, "Some improvement");
+            } catch (Exception e) {
+                throw e.getCause(); // Unwrap InvocationTargetException
+            }
+        });
+
+        // Verify
+        assertInstanceOf(IllegalArgumentException.class, exception);
+        assertTrue(exception.getMessage().contains("Strengths is required"),
+                "Error message should mention that Strengths is required");
     }
 
 

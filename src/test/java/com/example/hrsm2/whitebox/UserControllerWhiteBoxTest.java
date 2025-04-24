@@ -250,4 +250,25 @@ public class UserControllerWhiteBoxTest {
         assertTrue(result.contains("Passwords do not match"));
         assertTrue(result.contains("Full name is required"));
     }
+    @Test
+    public void testValidateUserInputs_ReservedSuperUsername_WhenSelectedUserIsNotSuper() {
+        // Arrange
+        String username = "super";
+        String password = "password123";
+        String confirmPassword = "password123";
+        String fullName = "Test User";
+
+        // Mock selectedUser with a username that's NOT "super"
+        User selectedUser = mock(User.class);
+        when(selectedUser.getUsername()).thenReturn("admin");  // Anything except "super"
+
+        // Act
+        String result = userController.validateUserInputs(username, password, confirmPassword, fullName, selectedUser);
+
+        // Assert
+        assertTrue(result.contains("Username \\'super\\' is reserved.\n"),
+                "Should return error because selectedUser is not 'super' but username input is 'super'");
+    }
+
+
 } 
